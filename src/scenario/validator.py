@@ -35,6 +35,12 @@ def validar_escenario(datos):
     errores = _validar_campos_obligatorios(datos)
     if errores:
         return errores
+
+    errores = _validar_dimensiones(datos)
+    if errores:
+        # Las reglas siguientes recorren la matriz terreno: con una forma
+        # inconsistente fallarían, así que se corta aquí.
+        return errores
     return errores
 
 
@@ -64,4 +70,60 @@ def _validar_campos_obligatorios(datos):
                 errores.append(f"Falta el campo obligatorio '{'.'.join(ruta)}'")
                 break
             actual = actual[nombre]
+    return errores
+
+
+def _es_entero(valor):
+    """True si valor es un entero de verdad (bool también es int en Python)."""
+    return isinstance(valor, int) and not isinstance(valor, bool)
+
+
+def _validar_dimensiones(datos):
+    """Regla 1: filas y columnas positivas y consistentes con la matriz terreno.
+
+    Purpose:            garantizar que el mapa tiene una forma rectangular
+                        válida, para que el resto del código pueda indexar
+                        terreno[fila][columna] sin salirse. No exige que el
+                        mapa sea cuadrado ni de un tamaño mínimo: cualquier
+                        filas x columnas positivo es válido.
+    Preconditions:      los campos obligatorios existen (ver
+                        _validar_campos_obligatorios).
+    Postconditions:     devuelve una lista con un error por cada problema:
+                        filas o columnas que no son enteros positivos; terreno
+                        que no es una lista; cantidad de filas de terreno
+                        distinta de mapa.filas; o una fila de terreno con
+                        longitud distinta de mapa.columnas (se reporta cada
+                        fila incorrecta, con su índice). No modifica datos.
+    Complexity:         O(f) en tiempo, con f = filas de la matriz terreno
+                        (se mide la longitud de cada fila, sin recorrer celdas).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    errores = []
+    filas = datos["mapa"]["filas"]
+    columnas = datos["mapa"]["columnas"]
+
+    for nombre, valor in (("mapa.filas", filas), ("mapa.columnas", columnas)):
+        if not _es_entero(valor) or valor <= 0:
+            errores.append(f"'{nombre}' debe ser un entero positivo (recibido: {valor!r})")
+    if errores:
+        return errores
+
+    terreno = datos["terreno"]
+    if not isinstance(terreno, list):
+        return ["'terreno' debe ser una lista de filas"]
+
+    if len(terreno) != filas:
+        errores.append(
+            f"'terreno' tiene {len(terreno)} filas pero mapa.filas es {filas}"
+        )
+    for i, fila in enumerate(terreno):
+        if not isinstance(fila, list):
+            errores.append(f"La fila {i} de 'terreno' debe ser una lista")
+        elif len(fila) != columnas:
+            errores.append(
+                f"La fila {i} de 'terreno' tiene {len(fila)} columnas "
+                f"pero mapa.columnas es {columnas}"
+            )
     return errores
