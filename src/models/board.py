@@ -2,6 +2,11 @@ class Board:
     """Parte fija del escenario: el mapa, sus terrenos y las bases.
     """
 
+    # Desplazamientos (fila, columna) en el orden de generación de sucesores:
+    # arriba, derecha, abajo, izquierda. Cambiar este orden cambia los
+    # resultados de DFS y Beam; es el único lugar donde se define.
+    DIRECCIONES = ((-1, 0), (0, 1), (1, 0), (0, -1))
+
     def __init__(self, filas, columnas, tipos_terreno, terreno, base_a, base_b):
         """Recibe datos que YA pasaron la validación (ver scenario/validator.py).
 
@@ -75,3 +80,28 @@ class Board:
         fila, columna = pos
         nombre = self.terreno[fila][columna]
         return self.tipos_terreno[nombre]["costo"]
+
+    def vecinos(self, pos):
+        """Celdas adyacentes a las que una unidad puede moverse desde pos.
+
+        Purpose:            generar las posiciones destino de un movimiento de
+                            una casilla en 4 direcciones, en el orden fijado
+                            por DIRECCIONES.
+        Preconditions:      pos es una tupla (fila, columna) de enteros.
+        Postconditions:     devuelve una lista de tuplas (fila, columna), en el
+                            orden de DIRECCIONES, solo con celdas dentro del
+                            mapa y transitables. No ignora ni considera
+                            unidades: eso lo decide quien llama. No modifica
+                            el tablero.
+        Complexity:         O(1) en tiempo y espacio (4 direcciones fijas).
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: TODO(equipo)
+        """
+        fila, columna = pos
+        vecinos = []
+        for d_fila, d_columna in self.DIRECCIONES:
+            destino = (fila + d_fila, columna + d_columna)
+            if self.es_transitable(destino):
+                vecinos.append(destino)
+        return vecinos
