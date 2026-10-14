@@ -41,6 +41,11 @@ def validar_escenario(datos):
         # Las reglas siguientes recorren la matriz terreno: con una forma
         # inconsistente fallarían, así que se corta aquí.
         return errores
+
+    # Las reglas siguientes no se cortan entre sí: así se informan todos los
+    # errores juntos. Las que consulten tipos_terreno por nombre deben saltarse
+    # las celdas con terreno desconocido (ya reportadas por la regla 2).
+    errores += _validar_terrenos_existen(datos)
     return errores
 
 
@@ -71,6 +76,11 @@ def _validar_campos_obligatorios(datos):
                 break
             actual = actual[nombre]
     return errores
+
+
+def _plural(cantidad, singular, plural):
+    """Devuelve singular si cantidad es 1, y plural en otro caso."""
+    return singular if cantidad == 1 else plural
 
 
 def _es_entero(valor):
@@ -126,4 +136,62 @@ def _validar_dimensiones(datos):
                 f"La fila {i} de 'terreno' tiene {len(fila)} columnas "
                 f"pero mapa.columnas es {columnas}"
             )
+    return errores
+
+
+# Máximo de celdas que se listan por terreno desconocido en el mensaje.
+MAX_CELDAS_EN_MENSAJE = 5
+
+
+def _validar_terrenos_existen(datos):
+    """Regla 2: todos los terrenos usados en la matriz existen en tipos_terreno.
+
+    Purpose:            detectar nombres de terreno escritos en la matriz que
+                        no están definidos en el catálogo, para que ningún
+                        algoritmo consulte un costo o una transitabilidad
+                        inexistente.
+    Preconditions:      la matriz terreno ya pasó _validar_dimensiones (es una
+                        lista de listas del tamaño declarado).
+    Postconditions:     devuelve una lista con UN error por cada nombre de
+                        terreno desconocido (no uno por celda), que indica las
+                        primeras MAX_CELDAS_EN_MENSAJE celdas donde aparece y
+                        cuántas hay en total; más un error por 'tipos_terreno'
+                        mal formado o por celdas cuyo valor no es texto. No
+                        modifica datos.
+    Complexity:         O(f*c) en tiempo, con f filas y c columnas (se mira
+                        cada celda una vez); O(u) en espacio, con u = celdas
+                        con terreno desconocido.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    tipos = datos["tipos_terreno"]
+    if not isinstance(tipos, dict):
+        return ["'tipos_terreno' debe ser un objeto con un tipo de terreno por nombre"]
+
+    desconocidos = {}  # nombre -> celdas (fila, columna) donde aparece
+    no_texto = []      # celdas cuyo valor ni siquiera es un nombre (texto)
+    for i, fila in enumerate(datos["terreno"]):
+        for j, nombre in enumerate(fila):
+            if not isinstance(nombre, str):
+                no_texto.append((i, j))
+            elif nombre not in tipos:
+                desconocidos.setdefault(nombre, []).append((i, j))
+
+    errores = []
+    for nombre, celdas in desconocidos.items():
+        listadas = ", ".join(str(c) for c in celdas[:MAX_CELDAS_EN_MENSAJE])
+        resto = len(celdas) - MAX_CELDAS_EN_MENSAJE
+        if resto > 0:
+            listadas += f" y {resto} más"
+        errores.append(
+            f"El terreno '{nombre}' no existe en 'tipos_terreno' "
+            f"(aparece en {len(celdas)} {_plural(len(celdas), 'celda', 'celdas')}: {listadas})"
+        )
+    if no_texto:
+        listadas = ", ".join(str(c) for c in no_texto[:MAX_CELDAS_EN_MENSAJE])
+        errores.append(
+            f"'terreno' tiene {len(no_texto)} {_plural(len(no_texto), 'celda', 'celdas')} "
+            f"cuyo valor no es un nombre de terreno (texto): {listadas}"
+        )
     return errores
