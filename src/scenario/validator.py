@@ -1,5 +1,7 @@
 import math
 
+from src.scenario.bandos import normalizar_bando
+
 # Campos obligatorios del formato de escenario (enunciado, pág. 5).
 # Cada entrada es la ruta del campo dentro del JSON.
 CAMPOS_OBLIGATORIOS = (
@@ -52,6 +54,8 @@ def validar_escenario(datos):
     errores += _validar_posiciones_en_mapa(datos)
     errores += _validar_unidades_en_celdas_transitables(datos)
     errores += _validar_ids_unicos(datos)
+    errores += _validar_bando_de_unidades(datos)
+    errores += _validar_turno(datos)
     return errores
 
 
@@ -471,3 +475,56 @@ def _validar_ids_unicos(datos):
                 f"(posiciones {listadas} de 'unidades')"
             )
     return errores
+
+
+def _validar_bando_de_unidades(datos):
+    """Regla 7: cada unidad pertenece al bando A o B.
+
+    Purpose:            asegurar que toda unidad tiene un bando reconocible,
+                        porque las reglas del juego y Minimax reparten las
+                        unidades entre los dos bandos.
+    Preconditions:      el campo 'unidades' existe (puede estar mal formado).
+    Postconditions:     devuelve un error por cada unidad cuyo 'bando' no
+                        reconoce normalizar_bando (se acepta "A", "B", "a" y
+                        "b"), con el valor recibido. Las unidades que no son
+                        objetos se saltan (las reporta la regla 4). No modifica
+                        datos: la conversión a mayúscula no se hace aquí.
+    Complexity:         O(u) en tiempo, con u = cantidad de unidades.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    unidades = datos["unidades"]
+    if not isinstance(unidades, list):
+        return []  # ya lo reporta la regla 4
+
+    errores = []
+    for i, unidad in enumerate(unidades):
+        if not isinstance(unidad, dict):
+            continue
+        bando = unidad.get("bando")
+        if normalizar_bando(bando) is None:
+            errores.append(
+                f"{_etiqueta_unidad(i, unidad)} tiene bando {bando!r}; debe ser A o B"
+            )
+    return errores
+
+
+def _validar_turno(datos):
+    """Regla 8: el turno corresponde al bando A o B.
+
+    Purpose:            asegurar que se sabe qué bando debe actuar.
+    Preconditions:      el campo 'turno' existe.
+    Postconditions:     devuelve una lista con un error si normalizar_bando no
+                        reconoce el turno (se acepta "A", "B", "a" y "b"), con
+                        el valor recibido; si no, una lista vacía. No modifica
+                        datos.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    turno = datos["turno"]
+    if normalizar_bando(turno) is None:
+        return [f"El turno es {turno!r}; debe ser A o B"]
+    return []
