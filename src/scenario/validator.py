@@ -50,6 +50,7 @@ def validar_escenario(datos):
     errores += _validar_terrenos_existen(datos)
     errores += _validar_costos_transitables(datos)
     errores += _validar_posiciones_en_mapa(datos)
+    errores += _validar_unidades_en_celdas_transitables(datos)
     return errores
 
 
@@ -334,10 +335,86 @@ def _validar_posiciones_en_mapa(datos):
         if not isinstance(unidad, dict):
             errores.append(f"La unidad en la posición {i} de 'unidades' debe ser un objeto")
             continue
-        id_unidad = unidad.get("id")
-        if isinstance(id_unidad, str):
-            etiqueta = f"La unidad '{id_unidad}'"
-        else:
-            etiqueta = f"La unidad en la posición {i} de 'unidades'"
-        errores += _validar_posicion(etiqueta, unidad, filas, columnas)
+        errores += _validar_posicion(_etiqueta_unidad(i, unidad), unidad, filas, columnas)
+    return errores
+
+
+def _etiqueta_unidad(indice, unidad):
+    """Texto para nombrar una unidad en los mensajes: por su id, o por su índice."""
+    id_unidad = unidad.get("id") if isinstance(unidad, dict) else None
+    if isinstance(id_unidad, str):
+        return f"La unidad '{id_unidad}'"
+    return f"La unidad en la posición {indice} de 'unidades'"
+
+
+def _tipo_en_celda(datos, pos):
+    """Devuelve (nombre, tipo) del terreno bajo una posición, o None si no se puede saber.
+
+    Purpose:            concentrar en un solo lugar todas las razones por las
+                        que una regla no puede consultar el terreno de una
+                        posición, para que se salte la posición en vez de fallar.
+    Preconditions:      mapa.filas, mapa.columnas y la matriz terreno ya pasaron
+                        la regla 1 (forma correcta); pos puede ser cualquier cosa.
+    Postconditions:     devuelve None si: pos no es un objeto; fila o columna no
+                        son enteros; está fuera del mapa (comprobación explícita,
+                        no por IndexError, porque un índice negativo no falla en
+                        Python); la celda no es texto; tipos_terreno no es un
+                        objeto; el terreno no existe en el catálogo; o su tipo no
+                        es un objeto. Si no, devuelve (nombre, tipo). No modifica
+                        datos.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    if not isinstance(pos, dict):
+        return None
+    fila, columna = pos.get("fila"), pos.get("columna")
+    if not (_es_entero(fila) and _es_entero(columna)):
+        return None
+    if not (0 <= fila < datos["mapa"]["filas"] and 0 <= columna < datos["mapa"]["columnas"]):
+        return None
+    nombre = datos["terreno"][fila][columna]
+    tipos = datos["tipos_terreno"]
+    if not isinstance(nombre, str) or not isinstance(tipos, dict):
+        return None
+    tipo = tipos.get(nombre)
+    return (nombre, tipo) if isinstance(tipo, dict) else None
+
+
+def _validar_unidades_en_celdas_transitables(datos):
+    """Regla 5: ninguna unidad se encuentra sobre una celda no transitable.
+
+    Purpose:            impedir escenarios donde una unidad empieza sobre un
+                        obstáculo, desde donde no tendría movimientos válidos.
+    Preconditions:      los campos obligatorios existen y la regla 1 no tiene
+                        errores (forma del mapa correcta).
+    Postconditions:     devuelve un error por cada unidad cuyo terreno tiene
+                        'transitable' exactamente false, con su nombre, el
+                        terreno y la celda. Una unidad cuyo terreno no se puede
+                        determinar se salta en silencio: eso solo es seguro
+                        porque las reglas 2, 3 y 4 ya rechazan el escenario en
+                        cada uno de esos casos. Un 'transitable' mal formado
+                        también se salta (lo reporta la regla 3). No modifica
+                        datos.
+    Complexity:         O(u) en tiempo, con u = cantidad de unidades.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    unidades = datos["unidades"]
+    if not isinstance(unidades, list):
+        return []  # ya lo reporta la regla 4
+
+    errores = []
+    for i, unidad in enumerate(unidades):
+        encontrado = _tipo_en_celda(datos, unidad)
+        if encontrado is None:
+            continue
+        nombre, tipo = encontrado
+        if tipo.get("transitable") is False:
+            errores.append(
+                f"{_etiqueta_unidad(i, unidad)} está sobre un terreno no "
+                f"transitable: '{nombre}' en ({unidad['fila']}, {unidad['columna']})"
+            )
     return errores
