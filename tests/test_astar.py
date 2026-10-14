@@ -1,11 +1,14 @@
 """Pruebas de A* y de la heurística Manhattan (escalada y sin escalar)."""
+import copy
+import math
 import random
 import unittest
 
 from src.game.navegacion import ProblemaNavegacion
 from src.models.board import Board
 from src.scenario.loader import cargar_escenario
-from src.search.heuristics import HEURISTICAS, crear_manhattan, crear_manhattan_pasos, obtener_fabrica
+from src.search.heuristics import (HEURISTICAS, crear_distancia_bfs, crear_manhattan,
+                                   crear_manhattan_pasos, obtener_fabrica)
 from src.search.informed import a_estrella
 from src.search.uninformed import ucs
 from tests.base import RUTA_OFICIAL
@@ -17,8 +20,9 @@ TIPOS_MEDIO = {"r": {"costo": 0.5, "transitable": True}, "n": {"costo": 1, "tran
 
 
 def tablero_con(terreno, tipos=None):
-    tipos = tipos or TIPOS_MEDIO
-    return Board(len(terreno), len(terreno[0]), tipos, terreno, (0, 0), (0, 0))
+    """Tablero nuevo con COPIAS de los datos: una prueba que cambie costos no contamina a las demás."""
+    tipos = copy.deepcopy(tipos or TIPOS_MEDIO)
+    return Board(len(terreno), len(terreno[0]), tipos, copy.deepcopy(terreno), (0, 0), (0, 0))
 
 
 def mapa_aleatorio(rng, tipos, nombres):
@@ -117,7 +121,7 @@ class TestHeuristicaManhattan(unittest.TestCase):
         self.assertEqual(crear_manhattan(problema)((0, 0)), 1.0)   # 2 pasos x 0.5, aunque el costo real es 2
 
     def test_nombres_disponibles_y_resolucion(self):
-        self.assertEqual(set(HEURISTICAS), {"manhattan", "manhattan_pasos"})
+        self.assertEqual(set(HEURISTICAS), {"manhattan", "manhattan_pasos", "distancia_bfs"})
         self.assertIs(obtener_fabrica("manhattan"), crear_manhattan)
         self.assertIs(obtener_fabrica(crear_manhattan_pasos), crear_manhattan_pasos)
         with self.assertRaises(ValueError):
@@ -257,6 +261,118 @@ class TestAEstrellaEsOptimo(unittest.TestCase):
         tipos = {"b": {"costo": 3, "transitable": True}, "c": {"costo": 10, "transitable": True},
                  "m": {"transitable": False}}
         self.comparar_con_ucs(tipos, ["b", "b", "c", "m"], semilla=5, mapas=300)
+
+
+MURO_QUE_OBLIGA_A_RODEAR = [["n", "n", "m", "n", "n"],
+                            ["n", "n", "m", "n", "n"],
+                            ["n", "n", "m", "n", "n"],
+                            ["n", "n", "m", "n", "n"],
+                            ["n", "n", "n", "n", "n"]]
+TIPOS_UNO = {"n": {"costo": 1, "transitable": True}, "m": {"transitable": False}}
+
+
+class TestHeuristicaDistanciaBFS(unittest.TestCase):
+    """Heurística 2: pasos reales (rodeando muros) por el costo mínimo."""
+
+    def setUp(self):
+        self.tablero = tablero_con(MURO_QUE_OBLIGA_A_RODEAR, TIPOS_UNO)
+        self.problema = ProblemaNavegacion(self.tablero, (2, 0), (2, 4))
+
+    def test_valores_rodeando_el_muro(self):
+        h = crear_distancia_bfs(self.problema)
+        self.assertEqual(h((2, 4)), 0)
+        self.assertEqual(h((2, 0)), 8)   # baja 2, cruza 4, sube 2: Manhattan diría 4
+        self.assertEqual(crear_manhattan(self.problema)((2, 0)), 4)
+
+    def test_se_escala_por_el_costo_minimo_del_escenario(self):
+        self.tablero.tipos_terreno["n"]["costo"] = 3
+        self.assertEqual(crear_distancia_bfs(self.problema)((2, 0)), 24)  # 8 pasos x 3
+
+    def test_celdas_inalcanzables_valen_infinito(self):
+        h = crear_distancia_bfs(self.problema)
+        self.assertEqual(h((0, 2)), math.inf)    # un muro
+        self.assertEqual(h((9, 9)), math.inf)    # fuera del mapa
+        aislado = tablero_con([["n", "m", "n"]], TIPOS_UNO)
+        self.assertEqual(crear_distancia_bfs(ProblemaNavegacion(aislado, (0, 0), (0, 2)))((0, 0)), math.inf)
+
+    def test_objetivo_no_transitable_no_falla_y_todo_es_infinito(self):
+        h = crear_distancia_bfs(ProblemaNavegacion(self.tablero, (2, 0), (0, 2)))  # (0,2) es muro
+        self.assertEqual(h((2, 0)), math.inf)
+        self.assertEqual(h((0, 2)), math.inf)
+
+    def test_domina_a_manhattan_en_todas_las_celdas(self):
+        rng = random.Random(8)
+        comparadas = 0
+        for _ in range(80):
+            tablero, libres = mapa_aleatorio(rng, TIPOS_MEDIO, ["r", "n", "n", "c", "m", "m"])
+            if len(libres) < 2:
+                continue
+            problema = ProblemaNavegacion(tablero, libres[0], rng.choice(libres))
+            h1, h2 = crear_manhattan(problema), crear_distancia_bfs(problema)
+            for estado in libres:
+                self.assertGreaterEqual(h2(estado) + 1e-9, h1(estado))
+                comparadas += 1
+        self.assertGreater(comparadas, 300)
+
+    def test_es_admisible_y_consistente_con_costos_menores_que_1(self):
+        rng = random.Random(9)
+        revisados = 0
+        for _ in range(60):
+            tablero, libres = mapa_aleatorio(rng, TIPOS_MEDIO, ["r", "r", "n", "c", "m", "m"])
+            if len(libres) < 2:
+                continue
+            objetivo = rng.choice(libres)
+            problema = ProblemaNavegacion(tablero, libres[0], objetivo)
+            h = crear_distancia_bfs(problema)
+            for estado in libres:
+                real = ucs(ProblemaNavegacion(tablero, estado, objetivo)).costo
+                if real is None:
+                    self.assertEqual(h(estado), math.inf)   # sin ruta: infinito, nunca un número finito
+                    continue
+                self.assertLessEqual(h(estado), real + 1e-9)
+                for _, destino, costo in problema.sucesores(estado):
+                    self.assertLessEqual(h(estado), costo + h(destino) + 1e-9)
+                revisados += 1
+        self.assertGreater(revisados, 150)
+
+    def test_caso_3_expande_menos_que_manhattan_con_el_mismo_costo(self):
+        """Caso 3: el objetivo parece cercano pero un muro obliga a rodear."""
+        m = a_estrella(self.problema, "manhattan")
+        b = a_estrella(self.problema, "distancia_bfs")
+        u = ucs(self.problema)
+        self.assertEqual((m.costo, b.costo, u.costo), (8, 8, 8))
+        self.assertEqual((m.estados_generados, m.estados_expandidos), (18, 17))
+        self.assertEqual((b.estados_generados, b.estados_expandidos), (16, 13))
+        self.assertLess(b.estados_expandidos, m.estados_expandidos)
+        self.assertLess(m.estados_expandidos, u.estados_expandidos + 1)   # Manhattan casi no mejora a UCS (17 contra 18)
+
+    def test_en_el_mapa_oficial_coincide_con_manhattan(self):
+        tablero = cargar_escenario(RUTA_OFICIAL).tablero
+        problema = ProblemaNavegacion(tablero, (0, 1), (3, 2))
+        r = a_estrella(problema, "distancia_bfs")
+        self.assertEqual((r.costo, r.estados_generados, r.estados_expandidos, r.maximo_frontera), (7, 12, 9, 5))
+        self.assertEqual(r.heuristica, "distancia_bfs")
+
+    def test_a_estrella_con_ella_siempre_da_el_costo_de_ucs(self):
+        rng = random.Random(10)
+        verificados = 0
+        for _ in range(300):
+            tablero, libres = mapa_aleatorio(rng, TIPOS_MEDIO, ["r", "n", "n", "c", "m", "m"])
+            if len(libres) < 2:
+                continue
+            problema = ProblemaNavegacion(tablero, rng.choice(libres), rng.choice(libres))
+            u, a = ucs(problema), a_estrella(problema, "distancia_bfs")
+            self.assertEqual(a.exito, u.exito)
+            if u.exito:
+                self.assertAlmostEqual(a.costo, u.costo)
+                verificados += 1
+        self.assertGreater(verificados, 100)
+
+    def test_sin_ruta_termina_sin_exito(self):
+        aislado = tablero_con([["n", "m", "n"]], TIPOS_UNO)
+        r = a_estrella(ProblemaNavegacion(aislado, (0, 0), (0, 2)), "distancia_bfs")
+        self.assertFalse(r.exito)
+        self.assertEqual(r.camino, ())
 
 
 if __name__ == "__main__":

@@ -8,6 +8,9 @@ en HEURISTICAS), por lo que cambiar de heurística no toca ni el algoritmo ni el
 problema. Estas fábricas usan problema.objetivo y problema.tablero.
 """
 
+import math
+from collections import deque
+
 
 def crear_manhattan(problema):
     """Manhattan escalada por el costo mínimo del escenario: h = pasos x c_min.
@@ -78,10 +81,79 @@ def crear_manhattan_pasos(problema):
     return h
 
 
+def crear_distancia_bfs(problema):
+    """Distancia real en pasos (rodeando muros) por el costo mínimo: h = pasos_reales x c_min.
+
+    Purpose:            estimar el costo restante usando el número REAL de pasos
+                        hasta el objetivo, que se calcula una vez con un BFS desde
+                        el objetivo sobre el mapa, multiplicado por el menor costo
+                        de entrada del escenario. Es la heurística 2.
+    Preconditions:      problema.objetivo es una tupla (fila, columna) y
+                        problema.tablero ya está validado; movimiento en 4
+                        direcciones, y se cobra la celda destino.
+    Postconditions:     devuelve h(estado) -> número >= 0, o math.inf si desde ese
+                        estado no se puede llegar al objetivo (muro, fuera del
+                        mapa, zona aislada, o objetivo no transitable). h(objetivo)
+                        = 0. Es ADMISIBLE y CONSISTENTE para cualquier escenario
+                        válido, y domina a Manhattan (h2 >= h1). No modifica nada.
+    Complexity:         Fábrica: un BFS, O(f*c) en tiempo y en memoria, con f
+                        filas y c columnas, una vez por objetivo. Cada
+                        h(estado): O(1). Al comparar con Manhattan hay que
+                        contar este preprocesamiento en el tiempo total.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+
+    Análisis (lo que pide el enunciado):
+      Qué estima: el costo de recorrer el camino de MENOS pasos si cada paso
+        costara lo mínimo posible. Es un "problema relajado": se relajan los
+        costos del terreno, pero se respetan los muros.
+      Qué información usa: la forma del mapa (muros y límites), el objetivo y el
+        costo mínimo transitable. No usa los costos de cada celda.
+      Admisible, porque: ningún camino real tiene menos pasos que la distancia
+        BFS, y cada paso cuesta al menos c_min.
+      Consistente, porque: entre celdas vecinas la distancia BFS cambia como
+        máximo en 1, así que h cambia como máximo en c_min, que es <= al costo
+        del paso.
+      Domina a Manhattan: rodear un muro nunca acorta, así que sus pasos son >=
+        los de Manhattan; con heurísticas consistentes, la que domina expande
+        igual o menos estados.
+      Orienta bien cuando: hay muros que obligan a rodear (Manhattan no los ve).
+      Pierde discriminación cuando: los costos varían mucho entre terrenos (usa
+        c_min para todos los pasos), o no hay muros (entonces coincide con
+        Manhattan y solo agrega el costo del preprocesamiento).
+      Por qué no usar UCS en el preprocesamiento: daría el costo exacto h*, es
+        decir, resolver el problema antes de resolverlo; A* no tendría nada que
+        hacer. Esta es un punto intermedio: más informada que Manhattan, pero
+        sigue siendo una estimación.
+    """
+    tablero = problema.tablero
+    costo_minimo = tablero.costo_minimo_transitable()
+    objetivo = problema.objetivo
+
+    pasos = {}
+    if tablero.es_transitable(objetivo):   # el BFS solo es válido saliendo de una celda por la que se puede pasar
+        pasos[objetivo] = 0
+        cola = deque([objetivo])
+        while cola:
+            celda = cola.popleft()
+            for vecino in tablero.vecinos(celda):
+                if vecino not in pasos:
+                    pasos[vecino] = pasos[celda] + 1
+                    cola.append(vecino)
+
+    def h(estado):
+        distancia = pasos.get(estado)
+        return math.inf if distancia is None else distancia * costo_minimo
+
+    return h
+
+
 # Heurísticas disponibles por nombre (la interfaz y los JSON de prueba eligen por nombre).
 HEURISTICAS = {
     "manhattan": crear_manhattan,
     "manhattan_pasos": crear_manhattan_pasos,
+    "distancia_bfs": crear_distancia_bfs,
 }
 
 
