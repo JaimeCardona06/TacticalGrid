@@ -56,6 +56,7 @@ def validar_escenario(datos):
     errores += _validar_ids_unicos(datos)
     errores += _validar_bando_de_unidades(datos)
     errores += _validar_turno(datos)
+    errores += _validar_portador_recurso(datos)
     return errores
 
 
@@ -527,4 +528,44 @@ def _validar_turno(datos):
     turno = datos["turno"]
     if normalizar_bando(turno) is None:
         return [f"El turno es {turno!r}; debe ser A o B"]
+    return []
+
+
+def _validar_portador_recurso(datos):
+    """Regla 9: si portador_recurso no es null, identifica una unidad existente.
+
+    Purpose:            asegurar que, cuando el escenario dice que una unidad
+                        lleva el recurso, esa unidad existe.
+    Preconditions:      el campo 'juego.portador_recurso' existe (null cuenta
+                        como presente; su ausencia la reporta la regla 0).
+    Postconditions:     devuelve una lista vacía si el valor es null o es el id
+                        de alguna unidad; si no, un error: el valor no es un
+                        texto no vacío (se muestra lo recibido), o es un texto
+                        que no coincide con el id de ninguna unidad. Los ids
+                        se comparan exactamente. Si el id está repetido o hay
+                        unidades con id inválido, no se reporta aquí: ya lo
+                        reporta la regla 6 (el portador sí existe). No modifica
+                        datos.
+    Complexity:         O(u) en tiempo, con u = cantidad de unidades.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    portador = datos["juego"]["portador_recurso"]
+    if portador is None:
+        return []
+
+    if not isinstance(portador, str) or portador == "":
+        return [
+            f"'juego.portador_recurso' debe ser el id de una unidad o null; "
+            f"se recibió {portador!r}"
+        ]
+
+    unidades = datos["unidades"]
+    if not isinstance(unidades, list):
+        return []  # ya lo reporta la regla 4
+
+    ids = {u.get("id") for u in unidades if isinstance(u, dict)}
+    if portador not in ids:
+        return [f"'juego.portador_recurso' es '{portador}', pero ninguna unidad tiene ese id"]
     return []
