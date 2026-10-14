@@ -57,6 +57,7 @@ def validar_escenario(datos):
     errores += _validar_bando_de_unidades(datos)
     errores += _validar_turno(datos)
     errores += _validar_portador_recurso(datos)
+    errores += _validar_profundidad_minimax(datos)
     return errores
 
 
@@ -568,4 +569,31 @@ def _validar_portador_recurso(datos):
     ids = {u.get("id") for u in unidades if isinstance(u, dict)}
     if portador not in ids:
         return [f"'juego.portador_recurso' es '{portador}', pero ninguna unidad tiene ese id"]
+    return []
+
+
+def _validar_profundidad_minimax(datos):
+    """Comprobación extra (decisión del equipo, no es una de las 9 del enunciado).
+
+    Purpose:            evitar que una profundidad de Minimax inservible (0,
+                        negativa, texto) llegue al algoritmo. Si el campo no
+                        viene, o es null, no es error: se usa el valor por
+                        defecto (ver loader.PROFUNDIDAD_POR_DEFECTO).
+    Preconditions:      'juego' existe como objeto (regla 0).
+    Postconditions:     devuelve un error si 'juego.profundidad_maxima_minimax'
+                        está presente, no es null y no es un entero positivo;
+                        si no, una lista vacía. No modifica datos.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    profundidad = datos["juego"].get("profundidad_maxima_minimax")
+    if profundidad is None:
+        return []
+    if not _es_entero(profundidad) or profundidad <= 0:
+        return [
+            f"'juego.profundidad_maxima_minimax' debe ser un entero positivo "
+            f"(recibido: {profundidad!r})"
+        ]
     return []
