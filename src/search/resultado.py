@@ -22,6 +22,8 @@ class ResultadoBusqueda:
     maximo_frontera: int = 0
     tiempo_segundos: float = 0.0
     heuristica: str = None      # nombre de la heurística, solo en los algoritmos informados
+    k: int = None               # ancho del haz, solo en Beam Search
+    maximo_candidatos: int = None   # Beam: mayor cantidad de candidatos creados en un nivel, antes de podar
 
     def a_diccionario(self):
         """Formato equivalente al del enunciado (pág. 7), más acciones y tiempo."""
@@ -38,6 +40,10 @@ class ResultadoBusqueda:
         }
         if self.heuristica is not None:
             datos["heuristica"] = self.heuristica
+        if self.k is not None:
+            datos["k"] = self.k
+        if self.maximo_candidatos is not None:
+            datos["maximo_candidatos"] = self.maximo_candidatos
         return datos
 
 
