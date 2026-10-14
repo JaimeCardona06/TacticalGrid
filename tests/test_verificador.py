@@ -126,11 +126,12 @@ class TestCasosNegativos(PruebaVerificador):
                             "estados_generados debe ser un entero no negativo")
 
     def test_sin_exito_pero_con_camino_o_costo(self):
-        sin_exito = bfs(ProblemaNavegacion(self.tablero, INICIO, (1, 1)))
-        self.assertTrue(self.verificar(sin_exito).valido)    # coherente: sin camino, acciones ni costo
-        self.assertProblema(self.verificar(replace(sin_exito, camino=((0, 1),))), "trae un camino")
-        self.assertProblema(self.verificar(replace(sin_exito, costo=0)), "trae un costo")
-        self.assertProblema(self.verificar(replace(sin_exito, acciones=("arriba",))), "trae acciones")
+        sin_exito = bfs(ProblemaNavegacion(self.tablero, INICIO, (1, 1)))     # objetivo en un muro: sin ruta
+        verificar = lambda r: verificar_solucion(self.tablero, r, INICIO, (1, 1))   # con el MISMO objetivo
+        self.assertTrue(verificar(sin_exito).valido)    # coherente: sin camino, acciones ni costo
+        self.assertProblema(verificar(replace(sin_exito, camino=((0, 1),))), "trae un camino")
+        self.assertProblema(verificar(replace(sin_exito, costo=0)), "trae un costo")
+        self.assertProblema(verificar(replace(sin_exito, acciones=("arriba",))), "trae acciones")
 
     def test_varios_problemas_se_informan_juntos(self):
         malo = replace(self.buena, camino=((0, 1), (1, 1), (3, 2)), acciones=(), costo=3)
@@ -185,6 +186,80 @@ class TestIndependenciaDelVerificador(PruebaVerificador):
         self.assertTrue(r.exito)
         self.assertIn((1, 1), r.camino)                   # el algoritmo, engañado por el Board, cruza el muro
         self.assertProblema(verificar_solucion(defectuoso, r, INICIO, destino), "no transitable")
+
+
+class TestTolerancia(PruebaVerificador):
+    """Las sumas de decimales no son exactas: 0.1 + 0.2 = 0.30000000000000004."""
+
+    def tablero_decimal(self):
+        tipos = {"a": {"costo": 0.1, "transitable": True}, "b": {"costo": 0.2, "transitable": True}}
+        return Board(1, 3, tipos, [["a", "a", "b"]], (0, 0), (0, 0))
+
+    def test_una_suma_correcta_con_ruido_de_punto_flotante_no_es_error(self):
+        t = self.tablero_decimal()
+        suma = 0.1 + 0.2
+        self.assertNotEqual(suma, 0.3)                      # el ruido existe: con == fallaría
+        r = replace(ucs(ProblemaNavegacion(t, (0, 0), (0, 2))), costo=0.3)   # costo "limpio" reportado
+        self.assertTrue(verificar_solucion(t, r, (0, 0), (0, 2)).valido)
+
+    def test_una_diferencia_real_pequena_si_es_error(self):
+        t = self.tablero_decimal()
+        r = replace(ucs(ProblemaNavegacion(t, (0, 0), (0, 2))), costo=0.3 + 1e-6)
+        self.assertProblema(verificar_solucion(t, r, (0, 0), (0, 2)), "la suma de los pasos es")
+
+
+class TestSinExito(PruebaVerificador):
+    """Un 'sin éxito' se comprueba con una búsqueda de alcanzabilidad independiente."""
+
+    def test_sin_ruta_confirma_el_sin_exito(self):
+        for algoritmo in (bfs, dfs, ucs, a_estrella):
+            with self.subTest(algoritmo=algoritmo.__name__):
+                r = algoritmo(ProblemaNavegacion(self.tablero, INICIO, (1, 1)))     # objetivo en un muro
+                informe = self.verificar_con(r, (1, 1))
+                self.assertTrue(informe.valido)
+                self.assertEqual(informe.avisos, ())
+
+    def verificar_con(self, resultado, objetivo, tablero=None):
+        return verificar_solucion(tablero or self.tablero, resultado, INICIO, objetivo)
+
+    def test_objetivo_encerrado_de_verdad_es_un_sin_exito_valido(self):
+        t = Board(4, 4, {"n": {"costo": 1, "transitable": True}, "m": {"transitable": False}},
+                  [["n", "n", "n", "n"], ["n", "m", "m", "m"], ["n", "m", "n", "m"], ["n", "m", "m", "m"]],
+                  (0, 0), (0, 0))
+        for algoritmo in (bfs, dfs, ucs, a_estrella):
+            r = algoritmo(ProblemaNavegacion(t, (0, 0), (2, 2)))
+            self.assertFalse(r.exito)
+            informe = verificar_solucion(t, r, (0, 0), (2, 2))
+            self.assertTrue(informe.valido, informe.problemas)
+
+    def test_un_algoritmo_completo_que_falla_aunque_hay_ruta_es_un_error(self):
+        for algoritmo in (bfs, dfs, ucs, a_estrella):
+            with self.subTest(algoritmo=algoritmo.__name__):
+                bueno = algoritmo(self.problema)
+                falso_fallo = replace(bueno, exito=False, camino=(), acciones=(), costo=None)
+                self.assertProblema(self.verificar(falso_fallo), "pero sí existe una ruta")
+
+    def test_beam_que_falla_aunque_hay_ruta_es_un_aviso_no_un_error(self):
+        t = Board(3, 3, {"n": {"costo": 1, "transitable": True}, "m": {"transitable": False}},
+                  [["n", "n", "n"], ["m", "n", "m"], ["n", "n", "n"]], (0, 0), (0, 0))
+        r = beam_search(ProblemaNavegacion(t, (0, 0), (2, 2)), 1)
+        self.assertFalse(r.exito)
+        informe = verificar_solucion(t, r, (0, 0), (2, 2))
+        self.assertTrue(informe.valido)
+        self.assertEqual(len(informe.avisos), 1)
+        self.assertIn("Beam Search con k = 1", informe.avisos[0])
+        self.assertIn("sí existe una ruta", informe.avisos[0])
+        # con k = 2 sí lo encuentra: no hay aviso
+        r2 = beam_search(ProblemaNavegacion(t, (0, 0), (2, 2)), 2)
+        self.assertEqual(verificar_solucion(t, r2, (0, 0), (2, 2)).avisos, ())
+
+    def test_la_alcanzabilidad_tampoco_usa_metodos_de_board(self):
+        t = self.tablero
+        sin_metodos = SoloDatosTablero(t.filas, t.columnas, t.tipos_terreno, t.terreno, t.base_a, t.base_b)
+        r = bfs(ProblemaNavegacion(t, INICIO, (1, 1)))
+        self.assertTrue(verificar_solucion(sin_metodos, r, INICIO, (1, 1)).valido)
+        falso_fallo = replace(self.buena, exito=False, camino=(), acciones=(), costo=None)
+        self.assertProblema(verificar_solucion(sin_metodos, falso_fallo, INICIO, OBJETIVO), "pero sí existe una ruta")
 
 
 class TestVerificadorEnMapasAleatorios(unittest.TestCase):

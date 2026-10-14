@@ -6,6 +6,7 @@ vienen del JSON) y recalcula todo por su cuenta. Así, si un algoritmo o un mét
 de Board tuviera un error, el verificador lo detectaría en vez de heredarlo.
 """
 import math
+from collections import deque
 from dataclasses import dataclass
 
 # Dirección de cada paso (propia del verificador: no importa nada de navegacion.py).
@@ -18,8 +19,11 @@ class InformeVerificacion:
 
     comprobaciones: tupla de (descripción, problemas) en el orden en que se hicieron;
                     `problemas` es una tupla de textos (vacía si esa comprobación pasó).
+    avisos:         observaciones que NO invalidan la solución (por ejemplo, que Beam
+                    Search falló aunque existe una ruta, lo cual es esperable en él).
     """
     comprobaciones: tuple
+    avisos: tuple = ()
 
     @property
     def problemas(self):
@@ -67,11 +71,16 @@ def verificar_solucion(tablero, resultado, inicio, objetivo):
                         destino de cada paso (convención del equipo); acciones
                         coherentes con los pasos; métricas coherentes. Si
                         exito=False se verifica que no traiga camino, acciones ni
-                        costo, y las métricas; NO se puede comprobar que realmente
-                        no exista ruta (eso exigiría volver a buscar). No usa
-                        ningún método de Board ni de los algoritmos y no modifica
-                        nada.
-    Complexity:         O(n) en tiempo y espacio, con n = longitud del camino.
+                        costo, las métricas, y con un relleno de alcanzabilidad
+                        independiente (sin costos) si realmente no existe ruta: si
+                        existe y el algoritmo es completo (BFS, DFS, UCS, A*) es un
+                        PROBLEMA; si el algoritmo es Beam es solo un AVISO (esperable,
+                        Beam no es completo). No usa ningún método de Board ni de los
+                        algoritmos y no modifica nada. Pendiente: verificar que no se
+                        generen estados inválidos y que las acciones de Minimax sean
+                        legales (modo partida).
+    Complexity:         O(n) en tiempo y espacio con n = longitud del camino si hay
+                        éxito; O(f*c) si no hay éxito (relleno de alcanzabilidad).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: TODO(equipo)
@@ -83,12 +92,25 @@ def verificar_solucion(tablero, resultado, inicio, objetivo):
         comprobaciones.append((descripcion, tuple(problemas)))
 
     if not resultado.exito:
+        avisos = []
         anotar("Una búsqueda sin éxito no trae camino, acciones ni costo",
                [m for m, malo in (("trae un camino", len(resultado.camino) > 0),
                                   ("trae acciones", len(resultado.acciones) > 0),
                                   ("trae un costo", resultado.costo is not None)) if malo])
+        hay_ruta = _hay_ruta(tablero, inicio, objetivo)
+        if hay_ruta and resultado.algoritmo == "BEAM":
+            # Beam no es completo: fallar aunque exista ruta es esperable, no un error.
+            avisos.append(f"Beam Search con k = {resultado.k} no encontró solución, pero sí existe una ruta "
+                          f"de {inicio} a {objetivo} (esperable: Beam descarta caminos al limitar el haz)")
+            anotar("Sin éxito: se comprobó con una búsqueda de alcanzabilidad independiente", [])
+        elif hay_ruta:
+            anotar("Sin éxito: se comprobó con una búsqueda de alcanzabilidad independiente",
+                   [f"{resultado.algoritmo} no encontró solución, pero sí existe una ruta de {inicio} a {objetivo} "
+                    f"(un algoritmo completo no debe fallar)"])
+        else:
+            anotar("Sin éxito: se comprobó con una búsqueda de alcanzabilidad independiente", [])
         anotar("Las métricas son coherentes", _problemas_metricas(resultado))
-        return InformeVerificacion(tuple(comprobaciones))
+        return InformeVerificacion(tuple(comprobaciones), tuple(avisos))
 
     camino = tuple(resultado.camino)
     forma = []
@@ -149,6 +171,30 @@ def verificar_solucion(tablero, resultado, inicio, objetivo):
 
     anotar("Las métricas son coherentes", _problemas_metricas(resultado))
     return InformeVerificacion(tuple(comprobaciones))
+
+
+def _hay_ruta(tablero, inicio, objetivo):
+    """Relleno simple de alcanzabilidad (sin costos): ¿se puede llegar de inicio a objetivo?
+
+    Lee solo la matriz y el catálogo, en 4 direcciones, igual que el resto del verificador.
+    """
+    def transitable(pos):
+        tipo = _terreno_de(tablero, pos)
+        return tipo is not None and tipo.get("transitable") is True
+
+    if not (transitable(inicio) and transitable(objetivo)):
+        return False
+    visto, cola = {inicio}, deque([inicio])
+    while cola:
+        f, c = cola.popleft()
+        if (f, c) == objetivo:
+            return True
+        for df, dc in _ACCION_DE_PASO:
+            vecino = (f + df, c + dc)
+            if vecino not in visto and transitable(vecino):
+                visto.add(vecino)
+                cola.append(vecino)
+    return False
 
 
 def _problemas_metricas(resultado):
