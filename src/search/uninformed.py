@@ -64,3 +64,68 @@ def bfs(problema):
         "BFS", False, estados_generados=generados, estados_expandidos=expandidos,
         maximo_frontera=maximo_frontera, tiempo_segundos=time.perf_counter() - inicio_reloj,
     )
+
+
+def dfs(problema):
+    """Búsqueda en profundidad (DFS): sigue una rama hasta el fondo con una pila LIFO.
+
+    Purpose:            encontrar UN camino del estado inicial a un objetivo,
+                        sin garantizar que tenga pocos movimientos ni poco costo,
+                        y registrando las métricas. Sirve para contrastar con BFS
+                        (caso 1 del enunciado): mismo modelo, otro recorrido.
+    Preconditions:      las mismas que bfs: problema ofrece estado_inicial(),
+                        sucesores(estado), es_objetivo(estado) y
+                        extremos_transitables(); los estados son hashables.
+    Postconditions:     devuelve un ResultadoBusqueda. Si el inicio o el objetivo
+                        no son transitables, termina sin éxito sin explorar nada.
+                        Si hay ruta, exito=True con un camino válido (no
+                        necesariamente corto ni barato). Convenciones, iguales a
+                        las del notebook del profesor: un estado se marca
+                        visitado al GENERARSE; la meta se comprueba al SACAR de
+                        la pila; los sucesores se apilan en el orden en que los
+                        da el problema, así que se explora PRIMERO el último
+                        (con DIRECCIONES por defecto: izquierda). Cambiar el
+                        orden de DIRECCIONES puede cambiar el camino. Es
+                        iterativo: no depende del límite de recursión de Python.
+                        No modifica el problema.
+    Complexity:         Tiempo O(V + E) y espacio O(V) en el peor caso, con V =
+                        estados alcanzables y E = pasos posibles. La pila
+                        (frontera) suele ser menor que la de BFS.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    inicio_reloj = time.perf_counter()
+
+    if not problema.extremos_transitables():
+        return ResultadoBusqueda("DFS", False, tiempo_segundos=time.perf_counter() - inicio_reloj)
+
+    inicial = problema.estado_inicial()
+    pila = [inicial]
+    padre = {inicial: None}  # estado -> (estado_padre, accion, costo_del_paso); también hace de "visitados"
+    generados, expandidos, maximo_frontera = 1, 0, 1
+
+    while pila:
+        estado = pila.pop()
+        expandidos += 1
+
+        if problema.es_objetivo(estado):
+            camino, acciones, costo = reconstruir_camino(padre, estado)
+            return ResultadoBusqueda(
+                "DFS", True, camino, acciones, costo,
+                generados, expandidos, maximo_frontera,
+                time.perf_counter() - inicio_reloj,
+            )
+
+        for accion, nuevo, costo_paso in problema.sucesores(estado):
+            if nuevo not in padre:
+                padre[nuevo] = (estado, accion, costo_paso)
+                pila.append(nuevo)
+                generados += 1
+
+        maximo_frontera = max(maximo_frontera, len(pila))
+
+    return ResultadoBusqueda(
+        "DFS", False, estados_generados=generados, estados_expandidos=expandidos,
+        maximo_frontera=maximo_frontera, tiempo_segundos=time.perf_counter() - inicio_reloj,
+    )
