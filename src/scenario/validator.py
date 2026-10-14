@@ -51,6 +51,7 @@ def validar_escenario(datos):
     errores += _validar_costos_transitables(datos)
     errores += _validar_posiciones_en_mapa(datos)
     errores += _validar_unidades_en_celdas_transitables(datos)
+    errores += _validar_ids_unicos(datos)
     return errores
 
 
@@ -416,5 +417,57 @@ def _validar_unidades_en_celdas_transitables(datos):
             errores.append(
                 f"{_etiqueta_unidad(i, unidad)} está sobre un terreno no "
                 f"transitable: '{nombre}' en ({unidad['fila']}, {unidad['columna']})"
+            )
+    return errores
+
+
+def _validar_ids_unicos(datos):
+    """Regla 6: los identificadores de unidad son únicos.
+
+    Purpose:            garantizar que cada unidad se puede nombrar sin
+                        ambigüedad, porque el portador del recurso, las
+                        acciones y los mensajes se refieren a ella por su id.
+    Preconditions:      el campo 'unidades' existe (puede estar mal formado:
+                        se reporta o se salta, no se asume).
+    Postconditions:     devuelve UN error por cada id repetido (no uno por
+                        unidad), con cuántas veces aparece y las primeras
+                        MAX_CELDAS_EN_MENSAJE posiciones de 'unidades'; y un
+                        error por cada unidad cuyo 'id' falta, no es texto o
+                        está vacío. Los ids se comparan exactamente: "A1" y
+                        "a1" son distintos. Las unidades que no son objetos
+                        se saltan (las reporta la regla 4). No modifica datos.
+    Complexity:         O(u) en tiempo y espacio, con u = cantidad de unidades
+                        (un diccionario id -> posiciones).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: TODO(equipo)
+    """
+    unidades = datos["unidades"]
+    if not isinstance(unidades, list):
+        return []  # ya lo reporta la regla 4
+
+    errores = []
+    posiciones_por_id = {}  # id -> posiciones en 'unidades' donde aparece
+    for i, unidad in enumerate(unidades):
+        if not isinstance(unidad, dict):
+            continue
+        id_unidad = unidad.get("id")
+        if not isinstance(id_unidad, str) or id_unidad == "":
+            errores.append(
+                f"La unidad en la posición {i} de 'unidades' no tiene un 'id' "
+                f"válido: debe ser un texto no vacío (recibido: {id_unidad!r})"
+            )
+            continue
+        posiciones_por_id.setdefault(id_unidad, []).append(i)
+
+    for id_unidad, posiciones in posiciones_por_id.items():
+        if len(posiciones) > 1:
+            listadas = ", ".join(str(p) for p in posiciones[:MAX_CELDAS_EN_MENSAJE])
+            resto = len(posiciones) - MAX_CELDAS_EN_MENSAJE
+            if resto > 0:
+                listadas += f" y {resto} más"
+            errores.append(
+                f"El id '{id_unidad}' está repetido en {len(posiciones)} unidades "
+                f"(posiciones {listadas} de 'unidades')"
             )
     return errores
