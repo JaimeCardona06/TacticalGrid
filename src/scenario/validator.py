@@ -566,7 +566,9 @@ def _validar_portador_recurso(datos):
     if not isinstance(unidades, list):
         return []  # ya lo reporta la regla 4
 
-    ids = {u.get("id") for u in unidades if isinstance(u, dict)}
+    # Solo cuentan los ids que son texto: un id de otro tipo (p. ej. una lista,
+    # que no se puede meter en un conjunto) ya lo reporta la regla 6.
+    ids = {u["id"] for u in unidades if isinstance(u, dict) and isinstance(u.get("id"), str)}
     if portador not in ids:
         return [f"'juego.portador_recurso' es '{portador}', pero ninguna unidad tiene ese id"]
     return []
