@@ -21,10 +21,11 @@ class ResultadoBusqueda:
     estados_expandidos: int = 0
     maximo_frontera: int = 0
     tiempo_segundos: float = 0.0
+    heuristica: str = None      # nombre de la heurística, solo en los algoritmos informados
 
     def a_diccionario(self):
         """Formato equivalente al del enunciado (pág. 7), más acciones y tiempo."""
-        return {
+        datos = {
             "algoritmo": self.algoritmo,
             "exito": self.exito,
             "camino": [list(p) for p in self.camino],
@@ -35,6 +36,9 @@ class ResultadoBusqueda:
             "maximo_frontera": self.maximo_frontera,
             "tiempo_segundos": self.tiempo_segundos,
         }
+        if self.heuristica is not None:
+            datos["heuristica"] = self.heuristica
+        return datos
 
 
 def reconstruir_camino(padre, meta):

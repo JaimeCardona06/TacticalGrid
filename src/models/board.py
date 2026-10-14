@@ -81,6 +81,28 @@ class Board:
         nombre = self.terreno[fila][columna]
         return self.tipos_terreno[nombre]["costo"]
 
+    def costo_minimo_transitable(self):
+        """Menor costo de entrada entre los terrenos transitables del catálogo.
+
+        Purpose:            dar la cota inferior del costo de cualquier paso, que
+                            necesitan las heurísticas para seguir siendo admisibles
+                            con cualquier escenario (no se asume que sea 1).
+        Preconditions:      el tablero ya fue validado (todo terreno transitable
+                            tiene costo positivo).
+        Postconditions:     devuelve el mínimo de "costo" sobre los tipos de
+                            terreno con transitable verdadero, mirando el catálogo
+                            completo (no solo los terrenos que aparecen en la
+                            matriz); None si no hay ningún terreno transitable.
+                            No modifica el tablero.
+        Complexity:         O(t) en tiempo y O(1) en espacio, con t = tipos de
+                            terreno del catálogo.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: TODO(equipo)
+        """
+        costos = [t["costo"] for t in self.tipos_terreno.values() if t["transitable"]]
+        return min(costos) if costos else None
+
     def vecinos(self, pos):
         """Celdas adyacentes a las que una unidad puede moverse desde pos.
 
