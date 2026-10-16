@@ -100,3 +100,11 @@ config/                  Escenarios JSON de desarrollo y casos mínimos
 tests/                   Suite de pruebas (unittest)
 docs/                    Enunciado del proyecto
 ```
+
+## Documentación
+
+- `docs/documento_tecnico.md`: modelado del problema, algoritmos de búsqueda, lógica adversarial,
+  resultados de los 10 casos mínimos, análisis de complejidad y reporte de uso de IA.
+- `docs/manual_de_usuario.md`: guía de uso por consola (modos, banderas, menú interactivo y
+  experimentos guiados).
+- `docs/Primer proyecto.pdf`: enunciado del proyecto.
