@@ -3,8 +3,12 @@
 Purpose:            cargar un escenario JSON con el loader validado del
                     proyecto (todo o nada) y despachar la ejecución según
                     `prueba.modo`: "busqueda", "partida" o "adversarial".
-Preconditions:      se ejecuta con `python main.py [ruta.json]`; la ruta por
-                    defecto es config/mapa_partida.json.
+Preconditions:      se ejecuta con `python main.py [ruta.json] [opciones]`; la
+                    ruta por defecto es config/mapa_partida.json. Opciones:
+                    --algoritmo, --heuristica, --k, --profundidad y
+                    --no-preguntar (ver construir_parser). Sin banderas, en
+                    consola interactiva se muestra un menú para que el usuario
+                    elija el algoritmo; el JSON queda como sugerencia.
 Postconditions:     imprime el progreso y las métricas en consola; devuelve 0
                     si la ejecución terminó bien y 1 si el escenario es
                     inválido o la configuración de la prueba no se puede
@@ -28,6 +32,7 @@ que usa solo la primera de cada bando (ver también EstadoJuego en
 src/models/state.py).
 """
 
+import argparse
 import json
 import sys
 
@@ -50,13 +55,73 @@ MODOS = ("busqueda", "partida", "adversarial")
 MAX_TURNOS = 100
 
 _ALGORITMOS_SIMPLES = {"BFS": bfs, "DFS": dfs, "UCS": ucs}
-_ALIAS_ALGORITMO = {
+
+# Nombres aceptados por el usuario (banderas, menú o JSON) y su forma canónica.
+NOMBRES_BUSQUEDA = ("BFS", "DFS", "UCS", "A*", "BEAM")
+NOMBRES_ADVERSARIAL = ("MINIMAX", "ALFA_BETA")
+_ALIAS_BUSQUEDA = {
+    "BFS": "BFS",
+    "DFS": "DFS",
+    "UCS": "UCS",
     "A*": "A_ESTRELLA",
     "ASTAR": "A_ESTRELLA",
     "A_ESTRELLA": "A_ESTRELLA",
     "BEAM": "BEAM",
     "BEAM_SEARCH": "BEAM",
 }
+_ALIAS_ADVERSARIAL = {
+    "MINIMAX": False,        # Minimax puro (sin poda)
+    "MINIMAX_PURO": False,
+    "PURO": False,
+    "ALFA_BETA": True,       # Minimax con poda alfa-beta
+    "ALFABETA": True,
+    "ALFA-BETA": True,
+    "PODA": True,
+}
+
+
+def normalizar_algoritmo_busqueda(nombre):
+    """Forma canónica ("BFS", "DFS", "UCS", "A_ESTRELLA", "BEAM") de un algoritmo de búsqueda.
+
+    Purpose:            aceptar los nombres que escribe el usuario (banderas,
+                        menú o JSON), incluidas variantes como "A*" o "astar",
+                        y rechazar lo desconocido con un mensaje útil.
+    Preconditions:      nombre es texto o algo convertible a texto.
+    Postconditions:     devuelve la forma canónica; lanza ValueError, con la
+                        lista de nombres válidos, si no es un algoritmo de
+                        búsqueda.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con las pruebas de alias y errores de tests/test_main.py.
+    """
+    clave = str(nombre).strip().upper().replace(" ", "_")
+    if clave not in _ALIAS_BUSQUEDA:
+        raise ValueError(
+            f"Algoritmo de búsqueda desconocido: {nombre!r}. Usa: {', '.join(NOMBRES_BUSQUEDA)}")
+    return _ALIAS_BUSQUEDA[clave]
+
+
+def normalizar_algoritmo_adversarial(nombre):
+    """Traduce el algoritmo adversarial pedido a usar_poda (True = alfa-beta, False = puro).
+
+    Purpose:            aceptar MINIMAX/MINIMAX_PURO/PURO y
+                        ALFA_BETA/ALFABETA/PODA (cualquier capitalización) y
+                        devolver si se juega con poda alfa-beta.
+    Preconditions:      nombre es texto o algo convertible a texto.
+    Postconditions:     devuelve True (poda) o False (puro); lanza ValueError,
+                        con los nombres válidos, si no es un algoritmo
+                        adversarial.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con las pruebas de alias y errores de tests/test_main.py.
+    """
+    clave = str(nombre).strip().upper().replace(" ", "_")
+    if clave not in _ALIAS_ADVERSARIAL:
+        raise ValueError(
+            f"Algoritmo adversarial desconocido: {nombre!r}. Usa: {', '.join(NOMBRES_ADVERSARIAL)}")
+    return _ALIAS_ADVERSARIAL[clave]
 
 
 def _unidad_por_bando(escenario, bando):
@@ -95,41 +160,36 @@ def _orden_de_prueba(prueba):
     return pasos or None
 
 
-def resolver_busqueda(problema, prueba):
-    """Ejecuta el algoritmo pedido por 'prueba' sobre un problema de navegación.
+def resolver_busqueda(problema, algoritmo="A_ESTRELLA", heuristica="manhattan", k=2):
+    """Ejecuta el algoritmo de búsqueda pedido sobre un problema de navegación.
 
-    Purpose:            traducir el bloque 'prueba' del JSON (algoritmo,
-                        heurística y k) a la llamada del algoritmo de búsqueda
-                        correspondiente, sin repetir ese despacho en main().
+    Purpose:            ser el punto ÚNICO de despacho de los algoritmos de
+                        búsqueda: recibe el algoritmo como parámetro explícito
+                        para que consola y GUI ejecuten exactamente lo que el
+                        usuario eligió, sin leer el JSON aquí.
     Preconditions:      problema es un ProblemaNavegacion construido sobre un
-                        tablero validado; prueba es el bloque 'prueba' del
-                        escenario (puede ser un diccionario vacío).
-    Postconditions:     devuelve un ResultadoBusqueda del algoritmo pedido
-                        ("BFS", "DFS", "UCS", "A_ESTRELLA" o "BEAM"; "A*" y
-                        "BEAM_SEARCH" se aceptan como alias). Lanza ValueError
-                        si el algoritmo o la heurística no existen, o si k no
-                        es un entero positivo para Beam. No modifica nada.
+                        tablero validado; algoritmo es un nombre de
+                        NOMBRES_BUSQUEDA (se aceptan alias como "A*"); k es el
+                        ancho del haz para Beam.
+    Postconditions:     devuelve un ResultadoBusqueda del algoritmo pedido.
+                        Lanza ValueError si el algoritmo o la heurística no
+                        existen, o si k no es un entero positivo para Beam. No
+                        modifica nada.
     Complexity:         la del algoritmo elegido (ver su documentación).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo con las pruebas de despacho de tests/test_main.py y las ejecuciones con banderas.
     """
-    algoritmo = str(prueba.get("algoritmo", "A_ESTRELLA")).strip().upper().replace(" ", "_")
-    algoritmo = _ALIAS_ALGORITMO.get(algoritmo, algoritmo)
-    heuristica = prueba.get("heuristica", "manhattan")
+    canonico = normalizar_algoritmo_busqueda(algoritmo)
 
-    if algoritmo in _ALGORITMOS_SIMPLES:
-        return _ALGORITMOS_SIMPLES[algoritmo](problema)
-    if algoritmo == "A_ESTRELLA":
+    if canonico in _ALGORITMOS_SIMPLES:
+        return _ALGORITMOS_SIMPLES[canonico](problema)
+    if canonico == "A_ESTRELLA":
         return a_estrella(problema, heuristica)
-    if algoritmo == "BEAM":
-        return beam_search(problema, prueba.get("k", 2), heuristica)
-
-    disponibles = sorted({*_ALGORITMOS_SIMPLES, "A_ESTRELLA", "BEAM"})
-    raise ValueError(f"Algoritmo desconocido: {algoritmo!r}. Disponibles: {', '.join(disponibles)}")
+    return beam_search(problema, k, heuristica)
 
 
-def ejecutar_busqueda(escenario):
+def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
     """Modo 'busqueda': resuelve la navegación pedida en 'prueba' y la verifica.
 
     Purpose:            correr una prueba de búsqueda uniactiva sobre el
@@ -139,6 +199,10 @@ def ejecutar_busqueda(escenario):
     Preconditions:      escenario viene de cargar_escenario (válido y
                         completo); 'prueba.unidad_inicio' identifica una unidad
                         existente y 'prueba.objetivo' trae fila y columna.
+                        algoritmo, heuristica y k son la elección explícita del
+                        usuario (consola o GUI): None significa "usa la
+                        sugerencia del JSON" (y si tampoco está, el valor por
+                        defecto).
     Postconditions:     imprime el resultado del algoritmo y el informe de
                         verificación. Devuelve 0 si la prueba se ejecutó (haya
                         o no ruta) y 1 si la configuración no permite ejecutar
@@ -149,6 +213,16 @@ def ejecutar_busqueda(escenario):
     Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
     """
     prueba = escenario.prueba or {}
+
+    # El usuario (banderas/menú/GUI) manda; el JSON queda como sugerencia.
+    eleccion_algoritmo = algoritmo if algoritmo is not None else prueba.get("algoritmo", "A_ESTRELLA")
+    eleccion_heuristica = heuristica if heuristica is not None else prueba.get("heuristica", "manhattan")
+    eleccion_k = k if k is not None else prueba.get("k", 2)
+    try:
+        canonico = normalizar_algoritmo_busqueda(eleccion_algoritmo)
+    except ValueError as error:
+        print(f"Error: {error}")
+        return 1
 
     unidad_id = prueba.get("unidad_inicio")
     unidad = next((u for u in escenario.unidades if u.id == unidad_id), None)
@@ -162,13 +236,19 @@ def ejecutar_busqueda(escenario):
         print("Error: 'prueba.objetivo' debe traer fila y columna numéricas.")
         return 1
 
+    extras = ""
+    if canonico == "A_ESTRELLA":
+        extras = f" (heurística: {eleccion_heuristica})"
+    elif canonico == "BEAM":
+        extras = f" (heurística: {eleccion_heuristica}, k: {eleccion_k})"
     print(f"\n=== MODO BÚSQUEDA: {unidad.id} {unidad.posicion} -> {objetivo} ===")
+    print(f"Algoritmo elegido: {canonico}{extras}")
     problema = ProblemaNavegacion(escenario.tablero, unidad.posicion, objetivo)
     if not problema.extremos_transitables():
         print("Aviso: el inicio o el objetivo no son transitables; no existe ruta.")
 
     try:
-        resultado = resolver_busqueda(problema, prueba)
+        resultado = resolver_busqueda(problema, canonico, eleccion_heuristica, eleccion_k)
     except ValueError as error:
         print(f"Error: {error}")
         return 1
@@ -188,32 +268,38 @@ def ejecutar_busqueda(escenario):
     return 0
 
 
-def _preparar_fase_4(escenario):
+def _preparar_fase_4(escenario, profundidad=None, usar_poda=None):
     """Estado inicial 1 vs 1 y parámetros efectivos de la fase adversarial.
 
     Purpose:            traducir el Escenario ya validado a lo que la fase
                         adversarial necesita (estado, profundidad, poda y
                         orden de acciones), sin volver a leer el JSON.
     Preconditions:      escenario viene de cargar_escenario (válido y
-                        completo).
+                        completo); profundidad y usar_poda son la elección
+                        explícita del usuario (consola o GUI), o None para
+                        usar la sugerencia del JSON.
     Postconditions:     devuelve (estado, unidad_a, unidad_b, profundidad,
                         usar_poda, orden). estado es None si a algún bando le
                         falta unidad (el escenario sigue siendo válido);
-                        profundidad es la de 'prueba.profundidad' si es un
-                        entero positivo y, si no, la de
-                        'juego.profundidad_maxima_minimax'. No modifica nada.
+                        profundidad efectiva es la elegida si es un entero
+                        positivo y, si no, 'prueba.profundidad' y luego
+                        'juego.profundidad_maxima_minimax'; usar_poda efectivo
+                        es el elegido y, si no, 'prueba.usar_poda'. No modifica
+                        nada.
     Complexity:         O(u) por la búsqueda de la primera unidad de cada bando.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
     """
     prueba = escenario.prueba or {}
-    profundidad = prueba.get("profundidad") or escenario.profundidad_maxima_minimax
+    if profundidad is None:
+        profundidad = prueba.get("profundidad") or escenario.profundidad_maxima_minimax
     if not isinstance(profundidad, int) or isinstance(profundidad, bool) or profundidad < 1:
         print(f"Aviso: profundidad inválida ({profundidad!r}); se usa la del escenario: "
               f"{escenario.profundidad_maxima_minimax}.")
         profundidad = escenario.profundidad_maxima_minimax
-    usar_poda = bool(prueba.get("usar_poda", True))
+    if usar_poda is None:
+        usar_poda = bool(prueba.get("usar_poda", True))
     orden = _orden_de_prueba(prueba)
 
     unidad_a = _unidad_por_bando(escenario, "A")
@@ -246,7 +332,7 @@ def _crear_agentes(profundidad, usar_poda, orden):
     }
 
 
-def ejecutar_adversarial(escenario):
+def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
     """Modo 'adversarial': evalúa el estado actual y muestra la acción elegida.
 
     Purpose:            cumplir el modo 'adversarial' del enunciado: evaluar
@@ -254,7 +340,9 @@ def ejecutar_adversarial(escenario):
                         seleccionar una acción para el bando del turno, sin
                         avanzar la partida.
     Preconditions:      escenario viene de cargar_escenario (válido y
-                        completo), con al menos una unidad por bando.
+                        completo), con al menos una unidad por bando;
+                        profundidad y usar_poda son la elección explícita del
+                        usuario (consola o GUI), o None para usar el JSON.
     Postconditions:     imprime el estado evaluado, la acción elegida, su
                         valor, la verificación de legalidad de la acción y las
                         métricas (nodos, podas, tiempo, profundidad efectiva).
@@ -267,7 +355,7 @@ def ejecutar_adversarial(escenario):
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario)
+    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
         print("Error: se necesita al menos una unidad de cada bando para la fase adversarial.")
         return 1
@@ -294,7 +382,7 @@ def ejecutar_adversarial(escenario):
     return 0
 
 
-def ejecutar_partida(escenario):
+def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
     """Modo 'partida': simula la partida por turnos entre dos agentes Minimax.
 
     Purpose:            continuar el juego por turnos (modo 'partida' del
@@ -302,7 +390,9 @@ def ejecutar_partida(escenario):
                         elige una acción con Minimax/alfa-beta y el estado
                         avanza hasta la victoria o el límite de turnos.
     Preconditions:      escenario viene de cargar_escenario (válido y
-                        completo), con al menos una unidad por bando.
+                        completo), con al menos una unidad por bando;
+                        profundidad y usar_poda son la elección explícita del
+                        usuario (consola o GUI), o None para usar el JSON.
     Postconditions:     imprime un renglón por turno (acción, valor, métricas
                         del agente y verificación de legalidad de la acción),
                         el desenlace (victoria de A, de B o empate por límite
@@ -316,7 +406,7 @@ def ejecutar_partida(escenario):
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario)
+    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
         print("Error: se necesita al menos una unidad de cada bando para la fase adversarial.")
         return 1
@@ -379,24 +469,161 @@ def ejecutar_partida(escenario):
     return 0
 
 
-def main():
+def _profundidad_sugerida(escenario):
+    """Profundidad que el JSON sugiere para jugar (prueba.profundidad > juego)."""
+    prueba = escenario.prueba or {}
+    valor = prueba.get("profundidad") or escenario.profundidad_maxima_minimax
+    if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 1:
+        return valor
+    return escenario.profundidad_maxima_minimax
+
+
+def _elegir_busqueda_interactiva(prueba, entrada=input):
+    """Menú numerado para elegir el algoritmo de búsqueda a visualizar.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué algoritmo se visualiza/ejecuta la búsqueda.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        entrada es input() o una función equivalente (pruebas).
+    Postconditions:     imprime el menú y devuelve la forma canónica del
+                        algoritmo elegido ("BFS", "DFS", "UCS", "A_ESTRELLA" o
+                        "BEAM"). Enter acepta la sugerencia del JSON (o
+                        A_ESTRELLA si el JSON no trae un nombre válido).
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió el menú y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (opción, Enter y reintento).
+    """
+    try:
+        sugerido = normalizar_algoritmo_busqueda(prueba.get("algoritmo", "A_ESTRELLA"))
+    except ValueError:
+        sugerido = "A_ESTRELLA"
+    opciones = ("BFS", "DFS", "UCS", "A_ESTRELLA", "BEAM")
+    etiquetas = {
+        "BFS": "BFS (anchura)",
+        "DFS": "DFS (profundidad)",
+        "UCS": "UCS (costo uniforme)",
+        "A_ESTRELLA": "A* (heurística)",
+        "BEAM": "Beam Search (haz)",
+    }
+    print("\nAlgoritmos disponibles para la búsqueda:")
+    for indice, opcion in enumerate(opciones, start=1):
+        marca = "   <- sugerido por el JSON" if opcion == sugerido else ""
+        print(f"  {indice}) {etiquetas[opcion]}{marca}")
+    while True:
+        try:
+            respuesta = entrada(f"Elige el algoritmo [1-{len(opciones)}, Enter = {sugerido}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la sugerencia del JSON.")
+            return sugerido
+        if not respuesta:
+            return sugerido
+        if respuesta.isdigit() and 1 <= int(respuesta) <= len(opciones):
+            return opciones[int(respuesta) - 1]
+        print(f"  Opción inválida: escribe un número del 1 al {len(opciones)} o Enter para {sugerido}.")
+
+
+def _elegir_adversarial_interactiva(prueba, profundidad_sugerida, entrada=input):
+    """Menú numerado para elegir el algoritmo adversarial y la profundidad.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué algoritmo se juega: Minimax puro o alfa-beta, y
+                        a qué profundidad.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        profundidad_sugerida es un entero >= 1; entrada es
+                        input() o una función equivalente (pruebas).
+    Postconditions:     imprime el menú y devuelve (usar_poda, profundidad):
+                        usar_poda=True para alfa-beta y False para Minimax
+                        puro. Enter acepta la sugerencia en cada pregunta.
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió el menú y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (opción, Enter y reintento).
+    """
+    poda_sugerida = bool(prueba.get("usar_poda", True))
+    print("\nAlgoritmos disponibles para jugar:")
+    print("  1) Minimax puro (sin poda)" + ("   <- sugerido por el JSON" if not poda_sugerida else ""))
+    print("  2) Alfa-beta (con poda)" + ("   <- sugerido por el JSON" if poda_sugerida else ""))
+    while True:
+        try:
+            respuesta = entrada(f"Elige el algoritmo [1-2, Enter = {2 if poda_sugerida else 1}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usan las sugerencias del JSON.")
+            return poda_sugerida, profundidad_sugerida
+        if not respuesta:
+            usar_poda = poda_sugerida
+            break
+        if respuesta in ("1", "2"):
+            usar_poda = respuesta == "2"
+            break
+        print("  Opción inválida: escribe 1, 2 o Enter.")
+    while True:
+        try:
+            respuesta = entrada(f"Profundidad [Enter = {profundidad_sugerida}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la profundidad sugerida.")
+            return usar_poda, profundidad_sugerida
+        if not respuesta:
+            return usar_poda, profundidad_sugerida
+        if respuesta.isdigit() and int(respuesta) >= 1:
+            return usar_poda, int(respuesta)
+        print("  Profundidad inválida: escribe un entero >= 1 o Enter.")
+
+
+def construir_parser():
+    """Parser de argumentos: ruta del escenario y elección del usuario.
+
+    Purpose:            definir la interfaz de consola: ruta opcional y
+                        banderas para elegir el algoritmo (búsqueda o
+                        adversarial), la heurística, el ancho del haz y la
+                        profundidad.
+    Preconditions:      ninguna.
+    Postconditions:     devuelve un argparse.ArgumentParser sin usarlo; no
+                        imprime ni valida combinaciones (eso lo hace main()).
+    Complexity:         O(1).
+    AI usage:           Yes
+    AI intervention:    la IA escribió el parser y esta documentación.
+    Student validation: Validado por el equipo ejecutando main.py con banderas y sin ellas.
+    """
+    parser = argparse.ArgumentParser(
+        prog="main.py",
+        description="TacticalGrid: carga un escenario JSON y ejecuta el modo de su 'prueba'.")
+    parser.add_argument("ruta", nargs="?", default=None,
+                        help=f"escenario JSON (por defecto: {RUTA_POR_DEFECTO})")
+    parser.add_argument("--algoritmo", default=None,
+                        help="búsqueda: BFS, DFS, UCS, A* o BEAM | jugar: MINIMAX (puro) o ALFA_BETA")
+    parser.add_argument("--heuristica", default=None,
+                        help="heurística de A*/Beam: manhattan, manhattan_pasos o distancia_bfs")
+    parser.add_argument("--k", type=int, default=None, help="ancho del haz para Beam Search")
+    parser.add_argument("--profundidad", type=int, default=None,
+                        help="profundidad de Minimax para jugar (partida/adversarial)")
+    parser.add_argument("--no-preguntar", action="store_true",
+                        help="no mostrar el menú interactivo; usa la sugerencia del JSON")
+    return parser
+
+
+def main(argv=None):
     """Punto de entrada: carga el escenario (todo o nada) y despacha por 'prueba.modo'.
 
     Purpose:            ser el único punto de arranque: valida y carga el
-                        escenario con cargar_escenario y despacha al modo
-                        "busqueda", "partida" o "adversarial".
-    Preconditions:      sys.argv[1] es, si viene, la ruta de un escenario JSON.
+                        escenario con cargar_escenario, resuelve el algoritmo
+                        elegido (banderas > menú interactivo > JSON) y
+                        despacha al modo "busqueda", "partida" o "adversarial".
+    Preconditions:      argv son los argumentos de consola (None = sys.argv).
     Postconditions:     devuelve 0 si el modo terminó bien y 1 si el escenario
                         fue rechazado (se listan los errores), el modo no
-                        existe o el modo no se pudo ejecutar. No modifica
-                        archivos.
+                        existe o la elección del usuario no es válida. Sin
+                        ninguna bandera, en consola interactiva muestra el
+                        menú; con --no-preguntar o sin terminal usa las
+                        sugerencias del JSON. No modifica archivos.
     Complexity:         O(n) por la carga (n = tamaño del JSON) más la
                         complejidad del modo elegido.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos con y sin banderas, más la suite completa.
     """
-    ruta = sys.argv[1] if len(sys.argv) > 1 else RUTA_POR_DEFECTO
+    args = construir_parser().parse_args(argv)
+    ruta = args.ruta or RUTA_POR_DEFECTO
     print(f"TacticalGrid: cargando escenario {ruta}")
 
     try:
@@ -416,11 +643,37 @@ def main():
     if modo not in MODOS:
         print(f"Error: modo desconocido {modo!r}. Modos soportados: {', '.join(MODOS)}")
         return 1
+
+    # El usuario elige el algoritmo: banderas de consola > menú interactivo > JSON.
+    hay_banderas = any(valor is not None for valor in
+                       (args.algoritmo, args.heuristica, args.k, args.profundidad))
+    preguntar = not hay_banderas and not args.no_preguntar and sys.stdin.isatty()
+
     if modo == "busqueda":
-        return ejecutar_busqueda(escenario)
+        if args.profundidad is not None:
+            print("Aviso: --profundidad solo aplica a partida/adversarial; se ignora en búsqueda.")
+        algoritmo = args.algoritmo
+        if preguntar:
+            algoritmo = _elegir_busqueda_interactiva(escenario.prueba or {})
+        return ejecutar_busqueda(escenario, algoritmo=algoritmo, heuristica=args.heuristica, k=args.k)
+
+    if args.k is not None or args.heuristica is not None:
+        print("Aviso: --heuristica y --k solo aplican a búsqueda; se ignoran al jugar.")
+
+    profundidad, usar_poda = args.profundidad, None
+    try:
+        if args.algoritmo is not None:
+            usar_poda = normalizar_algoritmo_adversarial(args.algoritmo)
+        elif preguntar:
+            usar_poda, profundidad = _elegir_adversarial_interactiva(
+                escenario.prueba or {}, profundidad or _profundidad_sugerida(escenario))
+    except ValueError as error:
+        print(f"Error: {error}")
+        return 1
+
     if modo == "adversarial":
-        return ejecutar_adversarial(escenario)
-    return ejecutar_partida(escenario)
+        return ejecutar_adversarial(escenario, profundidad=profundidad, usar_poda=usar_poda)
+    return ejecutar_partida(escenario, profundidad=profundidad, usar_poda=usar_poda)
 
 
 if __name__ == "__main__":
