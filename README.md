@@ -40,6 +40,30 @@ El modo lo decide el campo `prueba.modo` del escenario:
 
 Un escenario inválido se rechaza completo (se listan los errores y no se simula nada con él).
 
+## Selección del algoritmo (en tiempo de ejecución)
+
+El algoritmo lo elige **el usuario**, no el JSON (el JSON solo sugiere el valor por defecto):
+
+```bash
+python main.py config/caso_obstaculo.json --algoritmo BFS
+python main.py config/caso_obstaculo.json --algoritmo A* --heuristica distancia_bfs
+python main.py config/caso_beam.json --algoritmo BEAM --k 4
+python main.py config/caso_adversarial.json --algoritmo ALFA_BETA --profundidad 4
+python main.py config/caso_adversarial.json --algoritmo MINIMAX          # Minimax puro
+python main.py config/mapa_partida.json    # sin banderas: menú interactivo en consola
+```
+
+| Bandera | Valores | Aplica a |
+|---|---|---|
+| `--algoritmo` | `BFS`, `DFS`, `UCS`, `A*`/`ASTAR`, `BEAM` | modo `busqueda` |
+| `--algoritmo` | `MINIMAX`/`MINIMAX_PURO` (puro) o `ALFA_BETA` (con poda) | modos `partida`/`adversarial` |
+| `--heuristica` | `manhattan`, `manhattan_pasos`, `distancia_bfs` | A* y Beam |
+| `--k` | entero ≥ 1 | Beam Search |
+| `--profundidad` | entero ≥ 1 | partida/adversarial |
+| `--no-preguntar` | — | usa la sugerencia del JSON sin menú (automatización) |
+
+Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado** para elegir el algoritmo (Enter acepta la sugerencia del JSON).
+
 ## Pruebas
 
 ```bash
@@ -60,6 +84,7 @@ sus escenarios reproducibles en `config/caso_*.json`.
 - `caso_obstaculo.json`: muro que obliga a rodear (casos de heurísticas).
 - `caso_beam.json`: cambio de comportamiento según k.
 - `caso_adversarial.json`: decisión adversarial (casos mínimos 7 a 10).
+- `mapa_agnostico.json`: compatibilidad con nombres de terreno propios ("arena", "lava", "roca").
 
 ## Estructura
 
