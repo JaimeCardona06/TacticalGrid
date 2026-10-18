@@ -174,9 +174,44 @@ reproducibles en `config/caso_*.json`.
 | Acentos raros en consola | Usa una terminal UTF-8 (Windows Terminal o PowerShell moderno); el programa ya reconfigura la salida a UTF-8. |
 | Quiero probar mi propio mapa | Copia un JSON de `config/`, edítalo (dimensión, terrenos, costos, unidades, objetivo) y pásalo como primer argumento. Se valida todo o nada. |
 
-## 11. Nota sobre la interfaz gráfica
+## 11. Interfaz gráfica
 
-La versión actual funciona por consola. La interfaz gráfica (cuadrícula, terrenos, unidades y
-camino de la búsqueda) está en desarrollo por otro integrante del equipo y consumirá las mismas
-funciones del proyecto, pasando el algoritmo elegido en sus desplegables; nada de lo aquí descrito
-cambia para el usuario.
+Además de la consola, el proyecto trae una interfaz gráfica Tkinter (sin dependencias nuevas) que
+consume las mismas funciones del motor que `main.py`; nada de lo descrito en las secciones
+anteriores cambia por usar una u otra.
+
+### 11.1 Lanzarla
+
+```bash
+python -m src.ui.gui
+```
+
+### 11.2 Cargar un escenario
+
+Arriba de la ventana hay un desplegable con los JSON de `config/` (elige uno y se carga de
+inmediato) y un botón "Abrir archivo..." para cargar cualquier otro escenario, por ejemplo el que
+entregue el profesor durante la sustentación. Si el escenario es inválido, el área de mensajes
+lista los errores y el escenario mostrado en el tablero no cambia (carga todo o nada, igual que en
+consola).
+
+El tablero se dibuja a la izquierda: terreno por costo (verde = más barato, marrón = más caro, sin
+mirar el nombre del terreno), obstáculos en gris oscuro, bases con borde de color por bando,
+unidades como círculos con su id y color de bando, el recurso como un punto amarillo, y el turno
+actual en la esquina.
+
+### 11.3 Las tres pestañas
+
+- **Búsqueda:** elige la unidad, el objetivo (fila y columna), el algoritmo (BFS/DFS/UCS/A*/Beam)
+  y, si aplica, la heurística y `k`. "Resolver" dibuja el camino encontrado sobre el tablero y
+  muestra las métricas (éxito, costo, estados generados/expandidos, máximo de frontera, tiempo) y
+  el informe de verificación independiente, igual que en consola.
+- **Adversarial:** elige profundidad y si se usa poda alfa-beta. "Evaluar jugada" decide, entre
+  TODAS las unidades del bando del turno (modelo N vs N), cuál se mueve y a dónde, y resalta esa
+  celda destino en el tablero **sin mover la unidad**; el panel muestra qué unidad fue elegida, su
+  legalidad, el valor obtenido y las métricas (nodos, podas, profundidad efectiva, tiempo).
+- **Partida:** elige profundidad y poda, luego "Reiniciar partida" para preparar la partida desde
+  el estado inicial del escenario (con todas las unidades de cada bando, 1 vs 1 o 3 vs 3 según el
+  escenario). Cada clic en "Siguiente turno" juega un turno: mueve la unidad elegida por el agente
+  en el tablero y agrega una fila a la tabla (turno, bando, **unidad**, destino, valor, nodos,
+  podas, profundidad, legalidad, tiempo). Al terminar la partida (victoria o empate por límite de
+  turnos) el botón se deshabilita y aparece el desenlace con el resumen acumulado por bando.
