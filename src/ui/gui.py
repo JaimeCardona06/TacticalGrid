@@ -159,6 +159,7 @@ class AppTacticalGrid(tk.Tk):
         self.texto_mensajes.pack(side="bottom", fill="x", pady=(4, 0))
 
         self._construir_pestana_busqueda()
+        self._construir_pestana_adversarial()
 
     def _construir_pestana_busqueda(self):
         pestana = self.pestana_busqueda
@@ -208,6 +209,78 @@ class AppTacticalGrid(tk.Tk):
         self.texto_busqueda.pack(side="top", fill="both", expand=True)
 
         self._actualizar_controles_busqueda()
+
+    def _construir_pestana_adversarial(self):
+        pestana = self.pestana_adversarial
+
+        fila_params = ttk.Frame(pestana)
+        fila_params.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_params, text="Profundidad:").pack(side="left")
+        self.spin_profundidad_adv = tk.Spinbox(fila_params, from_=1, to=20, width=5)
+        self.spin_profundidad_adv.pack(side="left", padx=4)
+        self.var_poda_adv = tk.BooleanVar(value=True)
+        ttk.Checkbutton(fila_params, text="Poda alfa-beta", variable=self.var_poda_adv).pack(
+            side="left", padx=4)
+
+        ttk.Button(pestana, text="Evaluar jugada", command=self._evaluar_adversarial).pack(
+            side="top", pady=4)
+
+        self.texto_adversarial = tk.Text(pestana, height=16, state="disabled")
+        self.texto_adversarial.pack(side="top", fill="both", expand=True)
+
+    def _poblar_pestana_adversarial(self):
+        self.spin_profundidad_adv.delete(0, "end")
+        self.spin_profundidad_adv.insert(0, str(self.escenario.profundidad_maxima_minimax))
+        prueba = self.escenario.prueba or {}
+        self.var_poda_adv.set(bool(prueba.get("usar_poda", True)))
+
+    def _mostrar_resultado_adversarial(self, texto):
+        self.texto_adversarial.configure(state="normal")
+        self.texto_adversarial.delete("1.0", "end")
+        self.texto_adversarial.insert("end", texto)
+        self.texto_adversarial.configure(state="disabled")
+
+    def _evaluar_adversarial(self):
+        if self.escenario is None:
+            self._mostrar_resultado_adversarial("Carga un escenario primero.")
+            return
+
+        try:
+            profundidad = int(self.spin_profundidad_adv.get())
+        except ValueError:
+            self._mostrar_resultado_adversarial("La profundidad debe ser un entero >= 1.")
+            return
+        usar_poda = self.var_poda_adv.get()
+
+        try:
+            resultado = controlador.evaluar_adversarial(
+                self.escenario, profundidad=profundidad, usar_poda=usar_poda)
+        except controlador.ErrorControlador as error:
+            self._mostrar_resultado_adversarial(str(error))
+            return
+
+        self._celda_resaltada = resultado["accion"]
+        self._refrescar_canvas()
+
+        metricas = resultado["metricas"]
+        lineas = [
+            f"Bando que decide: {resultado['estado'].turno}",
+            f"Acción elegida: {resultado['accion']}",
+            f"Legalidad: {'LEGAL' if metricas['accion_legal'] else 'ILEGAL'} — "
+            f"{metricas['detalle_legalidad']}",
+            f"Valor obtenido: {metricas['valor_obtenido']:+.1f}",
+            f"Nodos visitados: {metricas['nodos_visitados']}",
+            f"Nodos generados: {metricas['nodos_generados']}",
+            f"Nodos evaluados: {metricas['nodos_evaluados']}",
+            f"Podas totales: {metricas['podas_totales']}",
+            f"Profundidad efectiva: {metricas['profundidad_alcanzada']}",
+            f"Tiempo: {metricas['tiempo_ms']:.2f} ms",
+        ]
+        if resultado["ignoradas"]:
+            lineas.append(
+                "Nota: la fase adversarial modela 1 vs 1; se ignoran las unidades: "
+                + ", ".join(resultado["ignoradas"]))
+        self._mostrar_resultado_adversarial("\n".join(lineas))
 
     def _actualizar_controles_busqueda(self, _evento=None):
         usa_extras = self.combo_algoritmo.get() in ("A*", "BEAM")
@@ -333,6 +406,7 @@ class AppTacticalGrid(tk.Tk):
             f"{escenario.tablero.filas}x{escenario.tablero.columnas} | "
             f"{len(escenario.unidades)} unidad(es) | turno {escenario.turno}")
         self._poblar_pestana_busqueda()
+        self._poblar_pestana_adversarial()
         self._refrescar_canvas()
 
     def _refrescar_canvas(self):
