@@ -260,14 +260,17 @@ class AppTacticalGrid(tk.Tk):
             self._mostrar_resultado_adversarial(str(error))
             return
 
-        self._celda_resaltada = resultado["accion"]
+        self._celda_resaltada = resultado["destino"]
         self._abandonar_vista_partida()
         self._refrescar_canvas()
 
         metricas = resultado["metricas"]
         lineas = [
             f"Bando que decide: {resultado['estado'].turno}",
-            f"Acción elegida: {resultado['accion']}",
+            f"Unidades A: {len(resultado['unidades_a'])} | "
+            f"Unidades B: {len(resultado['unidades_b'])}",
+            f"Acción elegida: la unidad {resultado['nombre_unidad']} "
+            f"(bando {resultado['estado'].turno}) se mueve a {resultado['destino']}",
             f"Legalidad: {'LEGAL' if metricas['accion_legal'] else 'ILEGAL'} — "
             f"{metricas['detalle_legalidad']}",
             f"Valor obtenido: {metricas['valor_obtenido']:+.1f}",
@@ -278,10 +281,6 @@ class AppTacticalGrid(tk.Tk):
             f"Profundidad efectiva: {metricas['profundidad_alcanzada']}",
             f"Tiempo: {metricas['tiempo_ms']:.2f} ms",
         ]
-        if resultado["ignoradas"]:
-            lineas.append(
-                "Nota: la fase adversarial modela 1 vs 1; se ignoran las unidades: "
-                + ", ".join(resultado["ignoradas"]))
         self._mostrar_resultado_adversarial("\n".join(lineas))
 
     def _construir_pestana_partida(self):
@@ -305,13 +304,13 @@ class AppTacticalGrid(tk.Tk):
             state="disabled")
         self.boton_siguiente_turno.pack(side="left")
 
-        columnas = ("turno", "bando", "accion", "valor", "nodos", "podas",
+        columnas = ("turno", "bando", "unidad", "accion", "valor", "nodos", "podas",
                     "profundidad", "legal", "tiempo_ms")
         self.tabla_partida = ttk.Treeview(pestana, columns=columnas, show="headings", height=10)
         titulos = {
-            "turno": "Turno", "bando": "Bando", "accion": "Acción", "valor": "Valor",
-            "nodos": "Nodos", "podas": "Podas", "profundidad": "Prof.", "legal": "Legal",
-            "tiempo_ms": "Tiempo (ms)",
+            "turno": "Turno", "bando": "Bando", "unidad": "Unidad", "accion": "Destino",
+            "valor": "Valor", "nodos": "Nodos", "podas": "Podas", "profundidad": "Prof.",
+            "legal": "Legal", "tiempo_ms": "Tiempo (ms)",
         }
         for columna in columnas:
             self.tabla_partida.heading(columna, text=titulos[columna])
@@ -378,9 +377,9 @@ class AppTacticalGrid(tk.Tk):
         encabezado_por_mensaje = fila.get("mensaje")
         if not encabezado_por_mensaje:
             self.tabla_partida.insert("", "end", values=(
-                fila["turno"], fila["bando"], str(fila["accion"]), f"{fila['valor']:+.1f}",
-                fila["nodos_generados"], fila["podas"], fila["profundidad"],
-                "sí" if fila["legal"] else "NO", f"{fila['tiempo_ms']:.2f}",
+                fila["turno"], fila["bando"], fila["unidad"], str(fila["accion"]),
+                f"{fila['valor']:+.1f}", fila["nodos_generados"], fila["podas"],
+                fila["profundidad"], "sí" if fila["legal"] else "NO", f"{fila['tiempo_ms']:.2f}",
             ))
 
         self._refrescar_canvas()
@@ -551,13 +550,13 @@ class AppTacticalGrid(tk.Tk):
                 camino=self._camino_resuelto, celda_resaltada=self._celda_resaltada)
         else:
             unidades = controlador.unidades_con_posiciones(
-                self.escenario.unidades, self._partida.unidad_a.id, self._partida.estado.pos_a,
-                self._partida.unidad_b.id, self._partida.estado.pos_b)
+                self._partida.unidades_a, self._partida.estado.pos_a,
+                self._partida.unidades_b, self._partida.estado.pos_b)
             self.canvas.dibujar(
                 self.escenario.tablero, unidades, self._partida.estado.turno,
                 self._partida.estado.recurso_pos,
                 portador_id=controlador.portador_unidad_id(
-                    self._partida.estado, self._partida.unidad_a, self._partida.unidad_b))
+                    self._partida.estado, self._partida.unidades_a, self._partida.unidades_b))
 
 
 def main():

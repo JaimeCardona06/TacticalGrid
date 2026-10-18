@@ -17,57 +17,59 @@ class ErrorControlador(Exception):
     """Error de orquestación con un mensaje ya listo para mostrar al usuario."""
 
 
-def unidades_con_posiciones(unidades, unidad_a_id, pos_a, unidad_b_id, pos_b):
-    """Copia de 'unidades' con las posiciones de unidad_a_id/unidad_b_id reemplazadas.
+def unidades_con_posiciones(unidades_a, pos_a, unidades_b, pos_b):
+    """Unidades de ambos bandos con sus posiciones actuales (modelo N vs N).
 
-    Purpose:            dar la lista de unidades a dibujar en el canvas durante
-                        una partida en curso, reflejando dónde están ahora las
-                        dos unidades que mueve el modelo 1 vs 1, sin tocar las
-                        demás (que no se mueven).
-    Preconditions:      unidades es una tupla de Unidad; unidad_a_id y
-                        unidad_b_id son ids presentes en unidades (o no, si no
-                        hay coincidencia no se reemplaza nada); pos_a y pos_b
-                        son tuplas (fila, columna).
-    Postconditions:     devuelve una tupla nueva, mismo orden, con la posición
-                        de la unidad cuyo id es unidad_a_id cambiada a pos_a y
-                        la de unidad_b_id a pos_b; las demás quedan iguales. No
-                        modifica unidades.
-    Complexity:         O(n) en tiempo y espacio, n = len(unidades).
+    Purpose:            dar la lista completa de unidades a dibujar en el
+                        canvas durante una partida en curso, con la posición
+                        de cada una tomada de pos_a/pos_b por índice (el mismo
+                        orden que usan EstadoJuego y main._unidades_por_bando).
+    Preconditions:      unidades_a/unidades_b son las listas de Unidad de cada
+                        bando (main._preparar_fase_4); pos_a/pos_b son
+                        secuencias de celdas (fila, columna) del mismo largo,
+                        en el mismo orden (estado.pos_a/estado.pos_b).
+    Postconditions:     devuelve una tupla con una Unidad por cada elemento de
+                        unidades_a seguido de cada elemento de unidades_b, con
+                        su campo posicion reemplazado por la celda de
+                        pos_a/pos_b en su mismo índice. No modifica
+                        unidades_a ni unidades_b.
+    Complexity:         O(u) en tiempo y espacio, u = len(unidades_a) + len(unidades_b).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo con tests/test_controlador.py.
     """
-    resultado = []
-    for unidad in unidades:
-        if unidad.id == unidad_a_id:
-            resultado.append(replace(unidad, posicion=tuple(pos_a)))
-        elif unidad.id == unidad_b_id:
-            resultado.append(replace(unidad, posicion=tuple(pos_b)))
-        else:
-            resultado.append(unidad)
+    resultado = [replace(unidad, posicion=tuple(pos))
+                 for unidad, pos in zip(unidades_a, pos_a)]
+    resultado.extend(replace(unidad, posicion=tuple(pos))
+                      for unidad, pos in zip(unidades_b, pos_b))
     return tuple(resultado)
 
 
-def portador_unidad_id(estado, unidad_a, unidad_b):
-    """Id de la unidad que transporta el recurso según estado.portador ("A"/"B"/None).
+def portador_unidad_id(estado, unidades_a, unidades_b):
+    """Id de la unidad que transporta el recurso según estado.portador ((bando, índice) o None).
 
-    Purpose:            traducir el bando portador de un EstadoJuego al id de
-                        la unidad concreta que lo transporta, para que el
-                        canvas sepa a cuál unidad resaltar.
-    Preconditions:      estado tiene un atributo portador ("A", "B" o None);
-                        unidad_a y unidad_b son las Unidad de cada bando.
-    Postconditions:     devuelve unidad_a.id si estado.portador == "A",
-                        unidad_b.id si es "B", None en otro caso. No modifica
-                        nada.
+    Purpose:            traducir el portador de un EstadoJuego N vs N
+                        ((bando, índice) o None) al id de la unidad concreta
+                        que lo transporta, para que el canvas sepa a cuál
+                        unidad resaltar.
+    Preconditions:      estado.portador es (bando, índice) o None; unidades_a
+                        y unidades_b son las listas de Unidad de cada bando,
+                        en el mismo orden que estado.pos_a/estado.pos_b.
+    Postconditions:     devuelve el id de unidades_a[índice] o
+                        unidades_b[índice] según el bando de estado.portador;
+                        None si estado.portador es None o el índice no existe
+                        en esa lista. No modifica nada.
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo con tests/test_controlador.py.
     """
-    if estado.portador == "A":
-        return unidad_a.id
-    if estado.portador == "B":
-        return unidad_b.id
+    if estado.portador is None:
+        return None
+    bando, indice = estado.portador
+    unidades = unidades_a if bando == "A" else unidades_b
+    if 0 <= indice < len(unidades):
+        return unidades[indice].id
     return None
 
 
@@ -135,7 +137,7 @@ def resolver_busqueda_gui(escenario, unidad_id, objetivo, algoritmo, heuristica=
 
 
 def preparar_estado_inicial(escenario, profundidad=None, usar_poda=None):
-    """Estado inicial 1 vs 1 y parámetros efectivos para adversarial/partida.
+    """Estado inicial N vs N y parámetros efectivos para adversarial/partida.
 
     Purpose:            envolver main._preparar_fase_4 para la GUI, fallando
                         con un mensaje claro en vez de devolver un estado None
@@ -143,22 +145,24 @@ def preparar_estado_inicial(escenario, profundidad=None, usar_poda=None):
     Preconditions:      escenario viene de cargar_escenario (válido);
                         profundidad y usar_poda son la elección del usuario en
                         la GUI, o None para usar la sugerencia del escenario.
-    Postconditions:     devuelve (estado, unidad_a, unidad_b, profundidad,
-                        usar_poda, orden), igual que main._preparar_fase_4.
-                        Lanza ErrorControlador si falta una unidad de algún
-                        bando. No modifica nada.
+    Postconditions:     devuelve (estado, unidades_a, unidades_b, profundidad,
+                        usar_poda, orden), igual que main._preparar_fase_4:
+                        unidades_a/unidades_b son TODAS las unidades de cada
+                        bando (listas), en el mismo orden que estado.pos_a/
+                        estado.pos_b. Lanza ErrorControlador si falta una
+                        unidad de algún bando. No modifica nada.
     Complexity:         O(u) en tiempo, u = número de unidades; O(1) en espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo con tests/test_controlador.py.
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = main._preparar_fase_4(
+    estado, unidades_a, unidades_b, profundidad, usar_poda, orden = main._preparar_fase_4(
         escenario, profundidad, usar_poda)
     if estado is None:
         raise ErrorControlador(
             "Se necesita al menos una unidad de cada bando (A y B) para los modos "
             "adversarial y partida.")
-    return estado, unidad_a, unidad_b, profundidad, usar_poda, orden
+    return estado, unidades_a, unidades_b, profundidad, usar_poda, orden
 
 
 def evaluar_adversarial(escenario, profundidad=None, usar_poda=None):
@@ -166,27 +170,28 @@ def evaluar_adversarial(escenario, profundidad=None, usar_poda=None):
 
     Purpose:            cumplir el modo 'adversarial' de la GUI: decidir con
                         Minimax/alfa-beta la acción del bando del turno sobre
-                        el estado inicial del escenario, sin mover ninguna
-                        unidad.
+                        el estado inicial del escenario (TODAS sus unidades,
+                        modelo N vs N), sin mover ninguna.
     Preconditions:      escenario viene de cargar_escenario (válido);
                         profundidad y usar_poda son la elección del usuario en
                         la GUI, o None para usar la sugerencia del escenario.
-    Postconditions:     devuelve un dict con claves "estado", "accion",
-                        "metricas", "unidad_a", "unidad_b" e "ignoradas" (ids
-                        de unidades fuera del modelo 1 vs 1). Lanza
+    Postconditions:     devuelve un dict con claves "estado", "accion" (tupla
+                        (índice, destino) de main._preparar_fase_4/
+                        MinimaxAgent), "indice", "destino", "nombre_unidad"
+                        (id de la unidad que se mueve, vía main._nombre_unidad),
+                        "metricas", "unidades_a" y "unidades_b". Lanza
                         ErrorControlador si falta una unidad de algún bando o
                         si no hay acciones legales para el bando del turno. No
                         modifica nada.
     Complexity:         O(b^d) con Minimax puro, O(b^(d/2)) con alfa-beta
-                        (buen orden); b = factor de ramificación (<=4).
+                        (buen orden); b = factor de ramificación (unidades del
+                        bando en turno × hasta 4 direcciones).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo con tests/test_controlador.py.
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = preparar_estado_inicial(
+    estado, unidades_a, unidades_b, profundidad, usar_poda, orden = preparar_estado_inicial(
         escenario, profundidad, usar_poda)
-    ignoradas = tuple(
-        u.id for u in escenario.unidades if u.id not in (unidad_a.id, unidad_b.id))
 
     agente = MinimaxAgent(estado.turno, profundidad=profundidad, usar_poda=usar_poda,
                            orden_direcciones=orden)
@@ -195,25 +200,31 @@ def evaluar_adversarial(escenario, profundidad=None, usar_poda=None):
     if accion is None:
         raise ErrorControlador("No hay acciones legales para el bando que debe actuar.")
 
+    indice, destino = accion
+    unidades_turno = unidades_a if estado.turno == "A" else unidades_b
+    nombre_unidad = main._nombre_unidad(estado.turno, indice, unidades_turno)
+
     return {
         "estado": estado,
         "accion": accion,
+        "indice": indice,
+        "destino": destino,
+        "nombre_unidad": nombre_unidad,
         "metricas": metricas,
-        "unidad_a": unidad_a,
-        "unidad_b": unidad_b,
-        "ignoradas": ignoradas,
+        "unidades_a": unidades_a,
+        "unidades_b": unidades_b,
     }
 
 
 @dataclass
 class PartidaEnCurso:
-    """Estado mutable de una partida jugándose turno a turno en la GUI."""
+    """Estado mutable de una partida jugándose turno a turno en la GUI (modelo N vs N)."""
     escenario: object
     tablero: object
     base_a: tuple
     base_b: tuple
-    unidad_a: object
-    unidad_b: object
+    unidades_a: object
+    unidades_b: object
     agentes: dict
     estado: object
     turno_num: int
@@ -225,10 +236,10 @@ class PartidaEnCurso:
 def iniciar_partida(escenario, profundidad=None, usar_poda=None):
     """Construye una PartidaEnCurso lista para jugar_turno, en el turno 1.
 
-    Purpose:            preparar el estado inicial, los agentes de ambos
-                        bandos y los acumulados por bando que la pestaña
-                        Partida de la GUI necesita antes del primer
-                        "Siguiente turno".
+    Purpose:            preparar el estado inicial (con TODAS las unidades de
+                        cada bando), los agentes de ambos bandos y los
+                        acumulados por bando que la pestaña Partida de la GUI
+                        necesita antes del primer "Siguiente turno".
     Preconditions:      escenario viene de cargar_escenario (válido);
                         profundidad y usar_poda son la elección del usuario en
                         la GUI, o None para usar la sugerencia del escenario.
@@ -242,7 +253,7 @@ def iniciar_partida(escenario, profundidad=None, usar_poda=None):
     AI intervention:    la IA escribió la función y esta documentación.
     Student validation: Validado por el equipo con tests/test_controlador.py.
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = preparar_estado_inicial(
+    estado, unidades_a, unidades_b, profundidad, usar_poda, orden = preparar_estado_inicial(
         escenario, profundidad, usar_poda)
     agentes = main._crear_agentes(profundidad, usar_poda, orden)
     totales = {
@@ -251,7 +262,7 @@ def iniciar_partida(escenario, profundidad=None, usar_poda=None):
     }
     return PartidaEnCurso(
         escenario=escenario, tablero=escenario.tablero, base_a=escenario.tablero.base_a,
-        base_b=escenario.tablero.base_b, unidad_a=unidad_a, unidad_b=unidad_b,
+        base_b=escenario.tablero.base_b, unidades_a=unidades_a, unidades_b=unidades_b,
         agentes=agentes, estado=estado, turno_num=1, totales=totales)
 
 
@@ -267,18 +278,21 @@ def jugar_turno(partida):
                         previa a jugar_turno que no terminó la partida).
     Postconditions:     si partida.terminada ya era True, lanza
                         ErrorControlador sin modificar partida. Si no, pide la
-                        acción al agente del bando activo: si no hay acción
-                        legal, marca partida.terminada=True,
-                        partida.ganador=None y devuelve una fila con
-                        accion=None y "mensaje"; si hay acción, acumula en
-                        partida.totales[bando], aplica la acción
-                        (partida.estado pasa al sucesor correspondiente),
-                        marca partida.terminada/partida.ganador si el estado
-                        es terminal o se alcanzó main.MAX_TURNOS, incrementa
-                        partida.turno_num y devuelve la fila de métricas de
-                        ese turno. Lanza ErrorControlador si la acción elegida
-                        no aparece entre los sucesores del estado (no debería
-                        ocurrir con un agente válido).
+                        acción (índice de unidad, destino) al agente del bando
+                        activo: si no hay acción legal, marca
+                        partida.terminada=True, partida.ganador=None y
+                        devuelve una fila con accion=None y "mensaje"; si hay
+                        acción, acumula en partida.totales[bando], aplica la
+                        acción (partida.estado pasa al sucesor
+                        correspondiente), marca partida.terminada/
+                        partida.ganador (el BANDO ganador, no la tupla
+                        portador) si el estado es terminal o se alcanzó
+                        main.MAX_TURNOS, incrementa partida.turno_num y
+                        devuelve la fila de métricas de ese turno (incluye
+                        "unidad": el id de la unidad que se movió). Lanza
+                        ErrorControlador si la acción elegida no aparece entre
+                        los sucesores del estado (no debería ocurrir con un
+                        agente válido).
     Complexity:         O(b^d) con Minimax puro, O(b^(d/2)) con alfa-beta
                         (buen orden) para decidir la acción del turno.
     AI usage:           Yes
@@ -315,10 +329,15 @@ def jugar_turno(partida):
         raise ErrorControlador(f"Error interno: la acción {accion} no está entre los "
                                 f"sucesores del estado.")
 
+    indice, destino = accion
+    unidades_bando = partida.unidades_a if bando == "A" else partida.unidades_b
+    nombre_unidad = main._nombre_unidad(bando, indice, unidades_bando)
+
     fila = {
         "turno": partida.turno_num,
         "bando": bando,
-        "accion": accion,
+        "unidad": nombre_unidad,
+        "accion": destino,
         "valor": metricas["valor_obtenido"],
         "nodos_generados": metricas["nodos_generados"],
         "nodos_evaluados": metricas["nodos_evaluados"],
@@ -335,7 +354,7 @@ def jugar_turno(partida):
     partida.estado = nuevo_estado
     if partida.estado.es_terminal(partida.base_a, partida.base_b):
         partida.terminada = True
-        partida.ganador = partida.estado.portador
+        partida.ganador = partida.estado.portador[0]
 
     partida.turno_num += 1
     return fila

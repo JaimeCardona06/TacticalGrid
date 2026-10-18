@@ -27,25 +27,31 @@ class FakeEstado:
 
 class TestUnidadesConPosiciones(unittest.TestCase):
     def setUp(self):
-        self.unidades = (
+        self.unidades_a = (
             Unidad(id="A1", bando="A", tipo="estandar", posicion=(0, 0)),
             Unidad(id="A2", bando="A", tipo="estandar", posicion=(0, 1)),
+        )
+        self.unidades_b = (
             Unidad(id="B1", bando="B", tipo="estandar", posicion=(1, 0)),
         )
 
-    def test_reemplaza_solo_las_indicadas(self):
-        resultado = unidades_con_posiciones(self.unidades, "A1", (3, 3), "B1", (4, 4))
+    def test_reemplaza_las_posiciones_de_todas_las_unidades_por_indice(self):
+        resultado = unidades_con_posiciones(
+            self.unidades_a, ((3, 3), (3, 4)), self.unidades_b, ((4, 4),))
         por_id = {u.id: u.posicion for u in resultado}
-        self.assertEqual(por_id, {"A1": (3, 3), "A2": (0, 1), "B1": (4, 4)})
+        self.assertEqual(por_id, {"A1": (3, 3), "A2": (3, 4), "B1": (4, 4)})
 
 
 class TestPortadorUnidadId(unittest.TestCase):
-    def test_bando_a(self):
-        unidad_a = Unidad(id="A1", bando="A", tipo="estandar", posicion=(0, 0))
-        unidad_b = Unidad(id="B1", bando="B", tipo="estandar", posicion=(1, 1))
-        self.assertEqual(portador_unidad_id(FakeEstado("A"), unidad_a, unidad_b), "A1")
-        self.assertEqual(portador_unidad_id(FakeEstado("B"), unidad_a, unidad_b), "B1")
-        self.assertIsNone(portador_unidad_id(FakeEstado(None), unidad_a, unidad_b))
+    def test_resuelve_por_bando_e_indice(self):
+        unidades_a = (
+            Unidad(id="A1", bando="A", tipo="estandar", posicion=(0, 0)),
+            Unidad(id="A2", bando="A", tipo="estandar", posicion=(0, 1)),
+        )
+        unidades_b = (Unidad(id="B1", bando="B", tipo="estandar", posicion=(1, 1)),)
+        self.assertEqual(portador_unidad_id(FakeEstado(("A", 1)), unidades_a, unidades_b), "A2")
+        self.assertEqual(portador_unidad_id(FakeEstado(("B", 0)), unidades_a, unidades_b), "B1")
+        self.assertIsNone(portador_unidad_id(FakeEstado(None), unidades_a, unidades_b))
 
 
 class TestRecursoPosInicial(unittest.TestCase):
@@ -94,14 +100,18 @@ class TestEvaluarAdversarial(unittest.TestCase):
     def test_caso_minimo_7_profundidad_1_agarra_el_recurso(self):
         escenario = cargar_escenario(ruta_config("caso_adversarial.json"))
         resultado = evaluar_adversarial(escenario, profundidad=1)
-        self.assertEqual(resultado["accion"], (2, 2),
-                          f"esperado: (2, 2); obtenido: {resultado['accion']}")
+        self.assertEqual(resultado["accion"], (0, (2, 2)),
+                          f"esperado: (0, (2, 2)); obtenido: {resultado['accion']}")
+        self.assertEqual(resultado["destino"], (2, 2))
+        self.assertEqual(resultado["nombre_unidad"], "A1")
 
     def test_caso_minimo_7_profundidad_3_se_repliega(self):
         escenario = cargar_escenario(ruta_config("caso_adversarial.json"))
         resultado = evaluar_adversarial(escenario, profundidad=3)
-        self.assertEqual(resultado["accion"], (1, 1),
-                          f"esperado: (1, 1); obtenido: {resultado['accion']}")
+        self.assertEqual(resultado["accion"], (0, (1, 1)),
+                          f"esperado: (0, (1, 1)); obtenido: {resultado['accion']}")
+        self.assertEqual(resultado["metricas"]["valor_obtenido"], -4800.0,
+                          f"esperado: -4800.0; obtenido: {resultado['metricas']['valor_obtenido']}")
 
     def test_sin_acciones_legales_lanza_error_controlador(self):
         tablero = Board(
@@ -116,6 +126,17 @@ class TestEvaluarAdversarial(unittest.TestCase):
             profundidad_maxima_minimax=2, prueba=None)
         with self.assertRaises(ErrorControlador):
             evaluar_adversarial(escenario, profundidad=2)
+
+    def test_3vs3_usa_todas_las_unidades_del_escenario(self):
+        escenario = cargar_escenario(ruta_config("mapa_3v3.json"))
+        resultado = evaluar_adversarial(escenario, profundidad=2)
+        self.assertEqual(len(resultado["unidades_a"]), 3)
+        self.assertEqual(len(resultado["unidades_b"]), 3)
+        indice, destino = resultado["accion"]
+        self.assertIn(indice, (0, 1, 2), f"esperado un indice de unidad A; obtenido: {indice}")
+        self.assertTrue(resultado["metricas"]["accion_legal"],
+                         resultado["metricas"]["detalle_legalidad"])
+        self.assertTrue(resultado["nombre_unidad"].startswith("A"))
 
 
 class TestPartida(unittest.TestCase):
@@ -154,3 +175,22 @@ class TestPartida(unittest.TestCase):
                               f"esperado: 5 turnos; obtenido: {partida.turno_num - 1}")
             with self.assertRaises(ErrorControlador):
                 jugar_turno(partida)
+
+    def test_partida_3vs3_usa_todas_las_unidades_y_termina(self):
+        escenario = cargar_escenario(ruta_config("mapa_3v3.json"))
+        partida = iniciar_partida(escenario, profundidad=2)
+        self.assertEqual(len(partida.unidades_a), 3)
+        self.assertEqual(len(partida.unidades_b), 3)
+        ids_validos = {u.id for u in partida.unidades_a + partida.unidades_b}
+
+        turnos = 0
+        while not partida.terminada and turnos < 100:
+            fila = jugar_turno(partida)
+            if "mensaje" not in fila:
+                self.assertIn(fila["unidad"], ids_validos,
+                               f"unidad desconocida en la fila: {fila['unidad']!r}")
+            turnos += 1
+
+        self.assertTrue(partida.terminada)
+        self.assertIn(partida.ganador, ("A", "B", None),
+                       f"ganador debe ser 'A', 'B' o None; obtenido: {partida.ganador!r}")
