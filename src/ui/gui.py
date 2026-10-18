@@ -160,6 +160,7 @@ class AppTacticalGrid(tk.Tk):
 
         self._construir_pestana_busqueda()
         self._construir_pestana_adversarial()
+        self._construir_pestana_partida()
 
     def _construir_pestana_busqueda(self):
         pestana = self.pestana_busqueda
@@ -281,6 +282,119 @@ class AppTacticalGrid(tk.Tk):
                 "Nota: la fase adversarial modela 1 vs 1; se ignoran las unidades: "
                 + ", ".join(resultado["ignoradas"]))
         self._mostrar_resultado_adversarial("\n".join(lineas))
+
+    def _construir_pestana_partida(self):
+        pestana = self.pestana_partida
+
+        fila_params = ttk.Frame(pestana)
+        fila_params.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_params, text="Profundidad:").pack(side="left")
+        self.spin_profundidad_partida = tk.Spinbox(fila_params, from_=1, to=20, width=5)
+        self.spin_profundidad_partida.pack(side="left", padx=4)
+        self.var_poda_partida = tk.BooleanVar(value=True)
+        ttk.Checkbutton(fila_params, text="Poda alfa-beta", variable=self.var_poda_partida).pack(
+            side="left", padx=4)
+
+        fila_botones = ttk.Frame(pestana)
+        fila_botones.pack(side="top", fill="x", pady=4)
+        ttk.Button(fila_botones, text="Reiniciar partida", command=self._reiniciar_partida).pack(
+            side="left", padx=(0, 4))
+        self.boton_siguiente_turno = ttk.Button(
+            fila_botones, text="Siguiente turno", command=self._siguiente_turno,
+            state="disabled")
+        self.boton_siguiente_turno.pack(side="left")
+
+        columnas = ("turno", "bando", "accion", "valor", "nodos", "podas",
+                    "profundidad", "legal", "tiempo_ms")
+        self.tabla_partida = ttk.Treeview(pestana, columns=columnas, show="headings", height=10)
+        titulos = {
+            "turno": "Turno", "bando": "Bando", "accion": "Acción", "valor": "Valor",
+            "nodos": "Nodos", "podas": "Podas", "profundidad": "Prof.", "legal": "Legal",
+            "tiempo_ms": "Tiempo (ms)",
+        }
+        for columna in columnas:
+            self.tabla_partida.heading(columna, text=titulos[columna])
+            self.tabla_partida.column(columna, width=70, anchor="center")
+        self.tabla_partida.pack(side="top", fill="both", expand=True, pady=(4, 4))
+
+        self.label_desenlace = ttk.Label(pestana, text="", justify="left")
+        self.label_desenlace.pack(side="top", fill="x")
+
+    def _poblar_pestana_partida(self):
+        self.spin_profundidad_partida.delete(0, "end")
+        self.spin_profundidad_partida.insert(0, str(self.escenario.profundidad_maxima_minimax))
+        prueba = self.escenario.prueba or {}
+        self.var_poda_partida.set(bool(prueba.get("usar_poda", True)))
+        self.tabla_partida.delete(*self.tabla_partida.get_children())
+        self.label_desenlace.configure(text="")
+        self.boton_siguiente_turno.configure(state="disabled")
+
+    def _resumen_partida(self, encabezado):
+        partida = self._partida
+        lineas = [encabezado, ""]
+        for bando in ("A", "B"):
+            datos = partida.totales[bando]
+            promedio = datos["tiempo_ms"] / datos["turnos"] if datos["turnos"] else 0.0
+            lineas.append(
+                f"{bando}: turnos {datos['turnos']} | generados {datos['generados']} | "
+                f"evaluados {datos['evaluados']} | podas {datos['podas']} | "
+                f"tiempo total {datos['tiempo_ms']:.2f} ms | promedio {promedio:.2f} ms")
+        return "\n".join(lineas)
+
+    def _reiniciar_partida(self):
+        if self.escenario is None:
+            self.label_desenlace.configure(text="Carga un escenario primero.")
+            return
+
+        try:
+            profundidad = int(self.spin_profundidad_partida.get())
+        except ValueError:
+            self.label_desenlace.configure(text="La profundidad debe ser un entero >= 1.")
+            return
+        usar_poda = self.var_poda_partida.get()
+
+        try:
+            self._partida = controlador.iniciar_partida(
+                self.escenario, profundidad=profundidad, usar_poda=usar_poda)
+        except controlador.ErrorControlador as error:
+            self.label_desenlace.configure(text=str(error))
+            return
+
+        self.tabla_partida.delete(*self.tabla_partida.get_children())
+        self.label_desenlace.configure(text="")
+        self.boton_siguiente_turno.configure(state="normal")
+        self._refrescar_canvas()
+
+    def _siguiente_turno(self):
+        if self._partida is None:
+            return
+        try:
+            fila = controlador.jugar_turno(self._partida)
+        except controlador.ErrorControlador as error:
+            self.label_desenlace.configure(text=str(error))
+            return
+
+        encabezado_por_mensaje = fila.get("mensaje")
+        if not encabezado_por_mensaje:
+            self.tabla_partida.insert("", "end", values=(
+                fila["turno"], fila["bando"], str(fila["accion"]), f"{fila['valor']:+.1f}",
+                fila["nodos_generados"], fila["podas"], fila["profundidad"],
+                "sí" if fila["legal"] else "NO", f"{fila['tiempo_ms']:.2f}",
+            ))
+
+        self._refrescar_canvas()
+
+        if self._partida.terminada:
+            self.boton_siguiente_turno.configure(state="disabled")
+            if encabezado_por_mensaje:
+                encabezado = encabezado_por_mensaje
+            elif self._partida.ganador is not None:
+                encabezado = (f"PARTIDA FINALIZADA: gana el bando {self._partida.ganador} "
+                               f"en {self._partida.turno_num - 1} turnos.")
+            else:
+                encabezado = (f"PARTIDA EMPATADA: se alcanzó el límite de turnos "
+                               f"({self._partida.turno_num - 1}).")
+            self.label_desenlace.configure(text=self._resumen_partida(encabezado))
 
     def _actualizar_controles_busqueda(self, _evento=None):
         usa_extras = self.combo_algoritmo.get() in ("A*", "BEAM")
@@ -407,6 +521,7 @@ class AppTacticalGrid(tk.Tk):
             f"{len(escenario.unidades)} unidad(es) | turno {escenario.turno}")
         self._poblar_pestana_busqueda()
         self._poblar_pestana_adversarial()
+        self._poblar_pestana_partida()
         self._refrescar_canvas()
 
     def _refrescar_canvas(self):
