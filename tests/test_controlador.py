@@ -10,6 +10,7 @@ from src.scenario.loader import cargar_escenario
 from src.ui.controlador import (
     ErrorControlador, unidades_con_posiciones, portador_unidad_id, recurso_pos_inicial,
     resolver_busqueda_gui, preparar_estado_inicial, evaluar_adversarial,
+    PartidaEnCurso, iniciar_partida, jugar_turno,
 )
 from tests.base import RAIZ
 
@@ -114,3 +115,46 @@ class TestEvaluarAdversarial(unittest.TestCase):
             profundidad_maxima_minimax=2, prueba=None)
         with self.assertRaises(ErrorControlador):
             evaluar_adversarial(escenario, profundidad=2)
+
+
+class TestPartida(unittest.TestCase):
+    def test_mapa_partida_lo_gana_b_en_22_turnos(self):
+        escenario = cargar_escenario(ruta_config("mapa_partida.json"))
+        partida = iniciar_partida(escenario)
+        self.assertIsInstance(partida, PartidaEnCurso)
+        filas = []
+        while not partida.terminada:
+            filas.append(jugar_turno(partida))
+        self.assertEqual(partida.ganador, "B",
+                          f"esperado: B; obtenido: {partida.ganador}")
+        self.assertEqual(partida.turno_num - 1, 22,
+                          f"esperado: 22 turnos; obtenido: {partida.turno_num - 1}")
+        self.assertEqual(len(filas), 22)
+
+    def test_jugar_turno_despues_de_terminada_lanza_error_controlador(self):
+        escenario = cargar_escenario(ruta_config("mapa_partida.json"))
+        partida = iniciar_partida(escenario)
+        while not partida.terminada:
+            jugar_turno(partida)
+        with self.assertRaises(ErrorControlador):
+            jugar_turno(partida)
+
+    def test_empate_por_limite_de_turnos_no_excede_max_turnos(self):
+        import main as modulo_main
+        tablero = Board(
+            filas=1, columnas=3,
+            tipos_terreno={"camino": {"costo": 1, "transitable": True}},
+            terreno=[["camino", "camino", "camino"]], base_a=(0, 0), base_b=(0, 2))
+        escenario = Escenario(
+            tablero=tablero,
+            unidades=(Unidad("A1", "A", "estandar", (0, 0)),
+                      Unidad("B1", "B", "estandar", (0, 2))),
+            turno="A", recurso=(0, 1), portador_recurso=None,
+            profundidad_maxima_minimax=1, prueba=None)
+        partida = iniciar_partida(escenario, profundidad=1)
+        turnos_jugados = 0
+        while not partida.terminada and turnos_jugados <= modulo_main.MAX_TURNOS + 1:
+            jugar_turno(partida)
+            turnos_jugados += 1
+        self.assertTrue(partida.terminada)
+        self.assertLessEqual(turnos_jugados, modulo_main.MAX_TURNOS)
