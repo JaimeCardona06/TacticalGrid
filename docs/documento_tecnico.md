@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** _completar con los nombres del equipo_
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 275 pruebas automatizadas + 172 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 290 pruebas automatizadas + 172 subtests.
 
 ---
 
@@ -171,6 +171,7 @@ completo). La opción se ejecuta en cada prueba de búsqueda y se imprime el inf
 
 - `minimax_puro`: explora el árbol completo hasta la profundidad dada alternando MAX (bando A) y MIN (bando B).
 - `minimax_alphabeta`: mismo resultado con cortes alfa/beta; en el caso 8 recorre menos de la mitad de los nodos del árbol.
+- **MIN no está en desventaja frente a MAX:** ambos bandos usan el mismo modelo de estado, las mismas reglas y la misma utilidad (siempre desde la perspectiva de A), y juegan con el mismo `MinimaxAgent` e idénticos parámetros (profundidad, poda y orden); MAX y MIN son solo roles (maximizar/minimizar) dentro del árbol.
 - En cada turno el bando activo elige **qué unidad mueve y hacia dónde** (modelo N vs N): la ramificación es unidades del bando × 4 direcciones (≤ 12 con 3 por bando).
 - La profundidad es configurable sin tocar código (JSON `juego.profundidad_maxima_minimax`, bandera `--profundidad` o menú).
 - El orden de generación de acciones es parametrizable (`orden_direcciones`): cambiar el orden cambia la cantidad de poda (caso 9).
@@ -224,7 +225,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 283 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 290 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -417,7 +418,7 @@ como apoyo en todas las fases del proyecto.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **283 pruebas y 172 subtests en verde**
+- Ejecución y verificación de la suite completa: **290 pruebas y 172 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

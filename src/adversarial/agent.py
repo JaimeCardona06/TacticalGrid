@@ -27,7 +27,7 @@ class MinimaxAgent:
     AI intervention:    la IA asistió en la estructuración del agente, la
                         refactorización de las métricas y el verificador de
                         legalidad.
-    Student validation: Validado por el equipo con la suite completa (244 pruebas),
+    Student validation: Validado por el equipo con la suite completa (290 pruebas),
                         incluida la legalidad de la acción elegida, y con las
                         simulaciones de partida de los modos partida/adversarial.
     """
@@ -46,7 +46,7 @@ class MinimaxAgent:
         AI usage:           Yes
         AI intervention:    la IA escribió el constructor y esta documentación.
         Student validation: Validado por el equipo instanciando agentes en las
-                            244 pruebas y en las simulaciones de partida.
+                            290 pruebas y en las simulaciones de partida.
         """
         self.nombre = nombre
         self.profundidad = profundidad
@@ -77,7 +77,7 @@ class MinimaxAgent:
         AI intervention:    la IA asistió en la integración de las métricas, la
                             latencia y la refactorización de la salida.
         Student validation: Validado por el equipo comparando las métricas de
-                            partida/adversarial con los 244 tests y verificando
+                            partida/adversarial con los 290 tests y verificando
                             que la acción elegida siempre es legal.
         """
         es_max = self.nombre == "A"
