@@ -8,7 +8,8 @@ Preconditions:      se ejecuta con `python main.py [ruta.json] [opciones]`; la
                     --algoritmo, --heuristica, --k, --profundidad y
                     --no-preguntar (ver construir_parser). Sin banderas, en
                     consola interactiva se muestra un menú para que el usuario
-                    elija el algoritmo; el JSON queda como sugerencia.
+                    elija el algoritmo y, para A*/Beam, la heurística y el
+                    ancho del haz k; el JSON queda como sugerencia.
 Postconditions:     imprime el progreso y las métricas en consola; devuelve 0
                     si la ejecución terminó bien y 1 si el escenario es
                     inválido o la configuración de la prueba no se puede
@@ -19,17 +20,15 @@ Complexity:         la del modo elegido (búsqueda: la del algoritmo; partida y
                     ramificación del tablero y d = profundidad de Minimax).
 AI usage:           Yes
 AI intervention:    la IA escribió el archivo y esta documentación.
-Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (290 pruebas).
 
-Decisión de diseño (fase adversarial 1 vs 1): el bucle Minimax modela UNA
-unidad por bando y avisa en consola si el escenario trae más (se ignoran las
-demás). Motivo: el árbol adversarial cuesta O(b^d) con b ≈ 4 por cada unidad
-que puede mover el bando del turno; modelar todas las unidades multiplica el
-factor de ramificación y obliga a profundidades mayores para que una jugada
-tenga efecto, volviendo intratable la búsqueda con d ≥ 3. El formato JSON y el
-validador sí admiten varias unidades por bando; es el bucle adversarial el
-que usa solo la primera de cada bando (ver también EstadoJuego en
-src/models/state.py).
+Modelo adversarial N vs N: el bucle Minimax usa TODAS las unidades de cada
+bando (ver EstadoJuego en src/models/state.py). En cada turno el bando activo
+elige una unidad y una dirección, así que el factor de ramificación es
+b = (unidades del bando en turno) × (hasta 4 direcciones): con 3 unidades por
+bando queda acotado en 12, demostrable con profundidad limitada y poda
+alfa-beta. La profundidad pedida sigue siendo configurable, y los escenarios
+1 vs 1 conservan su comportamiento y sus métricas.
 """
 
 import argparse
@@ -45,6 +44,7 @@ from src.game.navegacion import ProblemaNavegacion
 from src.game.verificador import verificar_solucion
 from src.models.state import EstadoJuego
 from src.scenario.loader import EscenarioInvalido, cargar_escenario
+from src.search.heuristics import HEURISTICAS
 from src.search.informed import a_estrella, beam_search
 from src.search.uninformed import bfs, dfs, ucs
 
@@ -124,12 +124,27 @@ def normalizar_algoritmo_adversarial(nombre):
     return _ALIAS_ADVERSARIAL[clave]
 
 
-def _unidad_por_bando(escenario, bando):
-    """Primera unidad del bando (la fase adversarial modela 1 vs 1; ver nota del módulo)."""
-    for unidad in escenario.unidades:
-        if unidad.bando == bando:
-            return unidad
+def _unidades_por_bando(escenario, bando):
+    """Todas las unidades del bando, en el orden del escenario (modelo N vs N)."""
+    return [unidad for unidad in escenario.unidades if unidad.bando == bando]
+
+
+def _portador_inicial(escenario, unidades_a, unidades_b):
+    """Mapea 'juego.portador_recurso' (id de unidad) a (bando, índice), o None."""
+    if escenario.portador_recurso is None:
+        return None
+    for bando, unidades in (("A", unidades_a), ("B", unidades_b)):
+        for indice, unidad in enumerate(unidades):
+            if unidad.id == escenario.portador_recurso:
+                return (bando, indice)
     return None
+
+
+def _nombre_unidad(bando, indice, unidades):
+    """Identificador para imprimir la unidad que actúa ('A2'), o 'A[índice]' si falta."""
+    if 0 <= indice < len(unidades):
+        return unidades[indice].id
+    return f"{bando}[{indice}]"
 
 
 def _objetivo_de_prueba(prueba):
@@ -210,7 +225,7 @@ def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
     Complexity:         la del algoritmo elegido más la verificación O(n).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (290 pruebas).
     """
     prueba = escenario.prueba or {}
 
@@ -269,27 +284,30 @@ def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
 
 
 def _preparar_fase_4(escenario, profundidad=None, usar_poda=None):
-    """Estado inicial 1 vs 1 y parámetros efectivos de la fase adversarial.
+    """Estado inicial N vs N y parámetros efectivos de la fase adversarial.
 
     Purpose:            traducir el Escenario ya validado a lo que la fase
-                        adversarial necesita (estado, profundidad, poda y
-                        orden de acciones), sin volver a leer el JSON.
+                        adversarial necesita (estado con TODAS las unidades,
+                        profundidad, poda y orden de acciones), sin volver a
+                        leer el JSON.
     Preconditions:      escenario viene de cargar_escenario (válido y
                         completo); profundidad y usar_poda son la elección
                         explícita del usuario (consola o GUI), o None para
                         usar la sugerencia del JSON.
-    Postconditions:     devuelve (estado, unidad_a, unidad_b, profundidad,
+    Postconditions:     devuelve (estado, unidades_a, unidades_b, profundidad,
                         usar_poda, orden). estado es None si a algún bando le
-                        falta unidad (el escenario sigue siendo válido);
+                        falta unidad (el escenario sigue siendo válido); si
+                        'juego.portador_recurso' identifica una unidad, el
+                        estado nace con ese portador y el recurso en su celda;
                         profundidad efectiva es la elegida si es un entero
                         positivo y, si no, 'prueba.profundidad' y luego
                         'juego.profundidad_maxima_minimax'; usar_poda efectivo
                         es el elegido y, si no, 'prueba.usar_poda'. No modifica
                         nada.
-    Complexity:         O(u) por la búsqueda de la primera unidad de cada bando.
+    Complexity:         O(u) por la búsqueda de unidades y del portador.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa.
     """
     prueba = escenario.prueba or {}
     if profundidad is None:
@@ -302,26 +320,23 @@ def _preparar_fase_4(escenario, profundidad=None, usar_poda=None):
         usar_poda = bool(prueba.get("usar_poda", True))
     orden = _orden_de_prueba(prueba)
 
-    unidad_a = _unidad_por_bando(escenario, "A")
-    unidad_b = _unidad_por_bando(escenario, "B")
+    unidades_a = _unidades_por_bando(escenario, "A")
+    unidades_b = _unidades_por_bando(escenario, "B")
     estado = None
-    if unidad_a is not None and unidad_b is not None:
+    if unidades_a and unidades_b:
+        portador = _portador_inicial(escenario, unidades_a, unidades_b)
+        recurso_pos = escenario.recurso
+        if portador is not None:
+            bando, indice = portador
+            recurso_pos = (unidades_a if bando == "A" else unidades_b)[indice].posicion
         estado = EstadoJuego(
-            pos_a=unidad_a.posicion,
-            pos_b=unidad_b.posicion,
-            portador=escenario.portador_recurso,
+            pos_a=tuple(u.posicion for u in unidades_a),
+            pos_b=tuple(u.posicion for u in unidades_b),
+            portador=portador,
             turno=escenario.turno,
-            recurso_pos=escenario.recurso,
+            recurso_pos=recurso_pos,
         )
-    return estado, unidad_a, unidad_b, profundidad, usar_poda, orden
-
-
-def _avisar_unidades_ignoradas(escenario, unidad_a, unidad_b):
-    """Avisa qué unidades del escenario quedan fuera del modelo 1 vs 1."""
-    usadas = {unidad_a.id, unidad_b.id}
-    ignoradas = [u.id for u in escenario.unidades if u.id not in usadas]
-    if ignoradas:
-        print(f"Nota: la fase 4 modela 1 vs 1; se ignoran las unidades: {', '.join(ignoradas)}")
+    return estado, unidades_a, unidades_b, profundidad, usar_poda, orden
 
 
 def _crear_agentes(profundidad, usar_poda, orden):
@@ -353,15 +368,15 @@ def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
                         'partida').
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (290 pruebas).
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
+    estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
         print("Error: se necesita al menos una unidad de cada bando para la fase adversarial.")
         return 1
-    _avisar_unidades_ignoradas(escenario, unidad_a, unidad_b)
 
     tablero = escenario.tablero
+    unidades = unidades_a if estado.turno == "A" else unidades_b
     print(f"\n=== MODO ADVERSARIAL: evaluación de una acción (lanza {estado.turno}) ===")
     print(f"Profundidad: {profundidad} | Poda alfa-beta: {'sí' if usar_poda else 'no'}")
     print(f"Estado evaluado: {estado}")
@@ -372,7 +387,9 @@ def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
         print("No hay acciones legales para el bando que debe actuar.")
         return 1
 
-    print(f"Acción elegida: mover el bando {estado.turno} a {accion}")
+    indice, destino = accion
+    nombre = _nombre_unidad(estado.turno, indice, unidades)
+    print(f"Acción elegida: la unidad {nombre} (bando {estado.turno}) se mueve a {destino}")
     print(f"Verificación de legalidad: {'LEGAL' if metricas['accion_legal'] else 'ILEGAL'}"
           f" — {metricas['detalle_legalidad']}")
     print(f"Valor obtenido: {metricas['valor_obtenido']:+.1f} | "
@@ -404,13 +421,12 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
                         turno (más los acumulados O(1)).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (244 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (290 pruebas).
     """
-    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
+    estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
         print("Error: se necesita al menos una unidad de cada bando para la fase adversarial.")
         return 1
-    _avisar_unidades_ignoradas(escenario, unidad_a, unidad_b)
 
     tablero = escenario.tablero
     base_a, base_b = tablero.base_a, tablero.base_b
@@ -420,7 +436,8 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
         for bando in ("A", "B")
     }
 
-    print(f"\n=== MODO PARTIDA: A {unidad_a.posicion} vs B {unidad_b.posicion} ===")
+    print(f"\n=== MODO PARTIDA: {len(unidades_a)} unidad(es) de A vs {len(unidades_b)} de B ===")
+    print(f"Unidades A: {', '.join(u.id for u in unidades_a)} | Unidades B: {', '.join(u.id for u in unidades_b)}")
     print(f"Base A: {base_a} | Base B: {base_b} | Recurso: {escenario.recurso}")
     print(f"Profundidad: {profundidad} | Poda alfa-beta: {'sí' if usar_poda else 'no'}")
     print(f"Estado inicial: {estado}\n" + "-" * 100)
@@ -440,7 +457,9 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
         acumulado["podas"] += metricas["podas_totales"]
         acumulado["tiempo_ms"] += metricas["tiempo_ms"]
 
-        print(f"Turno {turno_num:02d} | {bando} -> {accion} | Valor {metricas['valor_obtenido']:+.1f} | "
+        indice, destino = accion
+        nombre = _nombre_unidad(bando, indice, unidades_a if bando == "A" else unidades_b)
+        print(f"Turno {turno_num:02d} | {bando} -> {nombre} {destino} | Valor {metricas['valor_obtenido']:+.1f} | "
               f"Nodos {metricas['nodos_generados']:4d} | Evaluados {metricas['nodos_evaluados']:4d} | "
               f"Podas {metricas['podas_totales']:3d} | Prof. {metricas['profundidad_alcanzada']} | "
               f"Legal {'sí' if metricas['accion_legal'] else 'NO'} | {metricas['tiempo_ms']:.2f} ms")
@@ -455,7 +474,7 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
 
     print("-" * 100)
     if estado.es_terminal(base_a, base_b):
-        print(f"PARTIDA FINALIZADA: gana el bando {estado.portador} en {turno_num - 1} turnos.")
+        print(f"PARTIDA FINALIZADA: gana el bando {estado.portador[0]} en {turno_num - 1} turnos.")
     else:
         print(f"PARTIDA EMPATADA: se alcanzó el límite de {MAX_TURNOS} turnos sin ganador.")
 
@@ -521,6 +540,80 @@ def _elegir_busqueda_interactiva(prueba, entrada=input):
         if respuesta.isdigit() and 1 <= int(respuesta) <= len(opciones):
             return opciones[int(respuesta) - 1]
         print(f"  Opción inválida: escribe un número del 1 al {len(opciones)} o Enter para {sugerido}.")
+
+
+def _elegir_heuristica_interactiva(prueba, entrada=input):
+    """Menú numerado para elegir la heurística de A* o Beam Search.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué heurística se busca cuando eligió un algoritmo
+                        informado y no pasó --heuristica.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        entrada es input() o una función equivalente (pruebas).
+    Postconditions:     imprime el menú y devuelve el nombre canónico de la
+                        heurística ("manhattan", "manhattan_pasos" o
+                        "distancia_bfs"). Enter acepta la sugerencia del JSON
+                        (o "manhattan" si el JSON no trae un nombre válido).
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió el menú y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (opción, Enter y reintento).
+    """
+    sugerida = prueba.get("heuristica", "manhattan")
+    if sugerida not in HEURISTICAS:
+        sugerida = "manhattan"
+    opciones = ("manhattan", "manhattan_pasos", "distancia_bfs")
+    etiquetas = {
+        "manhattan": "manhattan (pasos x costo mínimo)",
+        "manhattan_pasos": "manhattan_pasos (solo pasos)",
+        "distancia_bfs": "distancia_bfs (rodeando muros)",
+    }
+    print("\nHeurísticas disponibles para A*/Beam:")
+    for indice, opcion in enumerate(opciones, start=1):
+        marca = "   <- sugerida por el JSON" if opcion == sugerida else ""
+        print(f"  {indice}) {etiquetas[opcion]}{marca}")
+    while True:
+        try:
+            respuesta = entrada(f"Elige la heurística [1-{len(opciones)}, Enter = {sugerida}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la sugerencia del JSON.")
+            return sugerida
+        if not respuesta:
+            return sugerida
+        if respuesta.isdigit() and 1 <= int(respuesta) <= len(opciones):
+            return opciones[int(respuesta) - 1]
+        print(f"  Opción inválida: escribe un número del 1 al {len(opciones)} o Enter para {sugerida}.")
+
+
+def _elegir_k_interactivo(prueba, entrada=input):
+    """Pregunta el ancho del haz k para Beam Search.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué k se ejecuta Beam cuando no pasó --k.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        entrada es input() o una función equivalente (pruebas).
+    Postconditions:     devuelve un entero >= 1. Enter acepta la sugerencia del
+                        JSON (o 2 si no trae un k válido). Reintenta con
+                        entradas inválidas; EOFError devuelve la sugerencia.
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la pregunta y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (valor, Enter y reintento).
+    """
+    sugerido = prueba.get("k", 2)
+    if isinstance(sugerido, bool) or not isinstance(sugerido, int) or sugerido < 1:
+        sugerido = 2
+    while True:
+        try:
+            respuesta = entrada(f"Ancho del haz k [Enter = {sugerido}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la sugerencia del JSON.")
+            return sugerido
+        if not respuesta:
+            return sugerido
+        if respuesta.isdigit() and int(respuesta) >= 1:
+            return int(respuesta)
+        print(f"  k inválido: escribe un entero >= 1 o Enter para {sugerido}.")
 
 
 def _elegir_adversarial_interactiva(prueba, profundidad_sugerida, entrada=input):
@@ -655,7 +748,19 @@ def main(argv=None):
         algoritmo = args.algoritmo
         if preguntar:
             algoritmo = _elegir_busqueda_interactiva(escenario.prueba or {})
-        return ejecutar_busqueda(escenario, algoritmo=algoritmo, heuristica=args.heuristica, k=args.k)
+        heuristica, k = args.heuristica, args.k
+        canonico = None
+        if algoritmo is not None:
+            try:
+                canonico = normalizar_algoritmo_busqueda(algoritmo)
+            except ValueError:
+                canonico = None  # el nombre inválido lo reporta ejecutar_busqueda
+        puede_preguntar = not args.no_preguntar and sys.stdin.isatty()
+        if canonico in ("A_ESTRELLA", "BEAM") and heuristica is None and puede_preguntar:
+            heuristica = _elegir_heuristica_interactiva(escenario.prueba or {})
+        if canonico == "BEAM" and k is None and puede_preguntar:
+            k = _elegir_k_interactivo(escenario.prueba or {})
+        return ejecutar_busqueda(escenario, algoritmo=algoritmo, heuristica=heuristica, k=k)
 
     if args.k is not None or args.heuristica is not None:
         print("Aviso: --heuristica y --k solo aplican a búsqueda; se ignoran al jugar.")

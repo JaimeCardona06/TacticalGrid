@@ -27,6 +27,8 @@ python main.py config/mapa_ejemplo.json         # prueba de búsqueda del enunci
 python main.py config/caso_obstaculo.json       # búsqueda con muro + verificación de la solución
 python main.py config/caso_beam.json            # Beam Search (k configurable en el JSON)
 python main.py config/caso_adversarial.json     # decisión adversarial (Minimax/alfa-beta)
+python main.py config/caso_adversarial_3v3.json # decisión adversarial 3 vs 3 (5x5, las 6 unidades)
+python main.py config/mapa_3v3.json             # partida 3 vs 3 (5x5, las 6 unidades activas)
 python main.py config/mapa_grande.json          # partida 20x20 (escenario de gran escala)
 ```
 
@@ -62,12 +64,12 @@ python main.py config/mapa_partida.json    # sin banderas: menú interactivo en 
 | `--profundidad` | entero ≥ 1 | partida/adversarial |
 | `--no-preguntar` | — | usa la sugerencia del JSON sin menú (automatización) |
 
-Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado** para elegir el algoritmo (Enter acepta la sugerencia del JSON).
+Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado** para elegir el algoritmo (Enter acepta la sugerencia del JSON); si el algoritmo es A* o Beam, pregunta además la heurística y, en Beam, el ancho `k` (las banderas `--heuristica`/`--k` y `--no-preguntar` evitan esas preguntas).
 
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (254 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (290 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -78,12 +80,14 @@ sus escenarios reproducibles en `config/caso_*.json`.
 ## Escenarios (`config/`)
 
 - `mapa_ejemplo.json`: escenario de la pág. 6 del enunciado (4x4).
-- `mapa_partida.json`: partida rápida (6x6).
-- `mapa_grande.json`: escenario de gran escala (20x20).
+- `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
+- `mapa_3v3.json`: partida 3 vs 3 (5x5, todas las unidades activas).
+- `mapa_grande.json`: escenario de gran escala (20x20, 3 unidades por bando).
 - `caso_bfs_vs_ucs.json`: ruta corta vs. ruta económica por costos de terreno.
 - `caso_obstaculo.json`: muro que obliga a rodear (casos de heurísticas).
 - `caso_beam.json`: cambio de comportamiento según k.
 - `caso_adversarial.json`: decisión adversarial (casos mínimos 7 a 10).
+- `caso_adversarial_3v3.json`: decisión adversarial 3 vs 3 (5x5).
 - `mapa_agnostico.json`: compatibilidad con nombres de terreno propios ("arena", "lava", "roca").
 
 ## Estructura
@@ -98,7 +102,7 @@ src/adversarial/         Minimax, poda alfa-beta, utilidad y agente
 src/ui/                  Interfaz gráfica (en desarrollo)
 config/                  Escenarios JSON de desarrollo y casos mínimos
 tests/                   Suite de pruebas (unittest)
-docs/                    Enunciado del proyecto
+docs/                    Enunciado, documento técnico y documentación
 ```
 
 ## Documentación
@@ -107,4 +111,5 @@ docs/                    Enunciado del proyecto
   resultados de los 10 casos mínimos, análisis de complejidad y reporte de uso de IA.
 - `docs/manual_de_usuario.md`: guía de uso por consola (modos, banderas, menú interactivo y
   experimentos guiados).
+- `docs/decisiones.md`: convenciones compartidas (métricas, desempates y modelo adversarial N vs N).
 - `docs/Primer proyecto.pdf`: enunciado del proyecto.

@@ -27,7 +27,7 @@ class MinimaxAgent:
     AI intervention:    la IA asistió en la estructuración del agente, la
                         refactorización de las métricas y el verificador de
                         legalidad.
-    Student validation: Validado por el equipo con la suite completa (244 pruebas),
+    Student validation: Validado por el equipo con la suite completa (290 pruebas),
                         incluida la legalidad de la acción elegida, y con las
                         simulaciones de partida de los modos partida/adversarial.
     """
@@ -46,7 +46,7 @@ class MinimaxAgent:
         AI usage:           Yes
         AI intervention:    la IA escribió el constructor y esta documentación.
         Student validation: Validado por el equipo instanciando agentes en las
-                            244 pruebas y en las simulaciones de partida.
+                            290 pruebas y en las simulaciones de partida.
         """
         self.nombre = nombre
         self.profundidad = profundidad
@@ -63,9 +63,9 @@ class MinimaxAgent:
         Preconditions:      estado es el EstadoJuego en el turno de
                             self.nombre; tablero, base_a y base_b vienen del
                             escenario validado.
-        Postconditions:     devuelve (accion, metricas): accion es la celda
-                            (fila, columna) elegida o None si no hay acciones
-                            legales; metricas trae accion, accion_legal,
+        Postconditions:     devuelve (accion, metricas): accion es
+                            (índice de unidad, celda destino) elegida o None si
+                            no hay acciones legales; metricas trae accion, accion_legal,
                             detalle_legalidad, valor_obtenido, tiempo_ms,
                             nodos_visitados, nodos_generados, nodos_evaluados,
                             podas_totales, podas_alfa, podas_beta y
@@ -77,7 +77,7 @@ class MinimaxAgent:
         AI intervention:    la IA asistió en la integración de las métricas, la
                             latencia y la refactorización de la salida.
         Student validation: Validado por el equipo comparando las métricas de
-                            partida/adversarial con los 244 tests y verificando
+                            partida/adversarial con los 290 tests y verificando
                             que la acción elegida siempre es legal.
         """
         es_max = self.nombre == "A"
@@ -128,44 +128,55 @@ class MinimaxAgent:
 
         Purpose:            comprobar, sin confiar en los sucesores que la
                             propia búsqueda generó, que la acción elegida es
-                            legal dentro de las reglas del juego: una celda a
-                            distancia Manhattan 1 de la unidad del bando,
+                            legal dentro de las reglas del juego: mover la
+                            unidad indicada a una celda a distancia Manhattan 1,
                             dentro del mapa y transitable según el catálogo de
                             terrenos del escenario.
         Preconditions:      estado es un EstadoJuego en el turno de self.nombre;
                             tablero tiene terreno (matriz de nombres) y
                             tipos_terreno (catálogo con "transitable");
-                            accion es una tupla (fila, columna) o None.
+                            accion es (índice de unidad, celda destino) o None.
         Postconditions:     devuelve (legal, descripcion): legal es True solo
-                            si accion es una vecina ortogonal transitable de la
-                            unidad del bando; descripcion explica el motivo
-                            cuando es ilegal. No usa los métodos de Board ni
-                            modifica nada.
+                            si el índice existe en el bando y la celda destino
+                            es una vecina ortogonal transitable de esa unidad;
+                            descripcion explica el motivo cuando es ilegal. No
+                            usa los métodos de Board ni modifica nada.
         Complexity:         O(1) en tiempo y espacio.
         AI usage:           Yes
         AI intervention:    la IA escribió el verificador y esta documentación.
         Student validation: Validado por el equipo con pruebas dedicadas de
-                            muros, celdas no vecinas y fuera del mapa, dentro
-                            de los 244 tests.
+                            muros, celdas no vecinas, índices inexistentes y
+                            celdas fuera del mapa, dentro de la suite completa.
         """
         if accion is None:
             return False, "el agente no devolvió ninguna acción"
 
-        if not (isinstance(accion, (tuple, list)) and len(accion) == 2
-                and all(isinstance(v, int) and not isinstance(v, bool) for v in accion)):
-            return False, f"la acción {accion!r} no es una celda (fila, columna) de enteros"
-        fila, columna = accion
+        if not (isinstance(accion, (tuple, list)) and len(accion) == 2):
+            return False, f"la acción {accion!r} no es (índice de unidad, celda)"
+        indice, destino = accion
 
-        origen = estado.pos_a if self.nombre == "A" else estado.pos_b
+        if not (isinstance(indice, int) and not isinstance(indice, bool)):
+            return False, f"el índice de unidad {indice!r} no es un entero"
+
+        if not (isinstance(destino, (tuple, list)) and len(destino) == 2
+                and all(isinstance(v, int) and not isinstance(v, bool) for v in destino)):
+            return False, f"la celda destino {destino!r} no es (fila, columna) de enteros"
+        fila, columna = destino
+
+        posiciones = estado.pos_a if self.nombre == "A" else estado.pos_b
+        if not (0 <= indice < len(posiciones)):
+            return False, f"la unidad {indice} no existe en el bando {self.nombre}"
+        origen = posiciones[indice]
+
         if abs(fila - origen[0]) + abs(columna - origen[1]) != 1:
-            return False, f"la celda {accion} no es vecina ortogonal de {origen}"
+            return False, f"la celda {destino} no es vecina ortogonal de {origen}"
 
         terreno = tablero.terreno
         if not (0 <= fila < len(terreno) and 0 <= columna < len(terreno[fila])):
-            return False, f"la celda {accion} está fuera del mapa"
+            return False, f"la celda {destino} está fuera del mapa"
 
         tipo = tablero.tipos_terreno.get(terreno[fila][columna])
         if not isinstance(tipo, dict) or not tipo.get("transitable"):
-            return False, f"la celda {accion} ({terreno[fila][columna]}) no es transitable"
+            return False, f"la celda {destino} ({terreno[fila][columna]}) no es transitable"
 
-        return True, f"la celda {accion} es vecina de {origen} y su terreno es transitable"
+        return True, f"la celda {destino} es vecina de {origen} y su terreno es transitable"
