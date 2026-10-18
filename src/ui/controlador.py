@@ -8,6 +8,7 @@ con unittest igual que el resto del proyecto.
 from dataclasses import replace
 
 import main
+from src.adversarial.agent import MinimaxAgent
 from src.game.navegacion import ProblemaNavegacion
 from src.game.verificador import verificar_solucion
 
@@ -131,3 +132,74 @@ def resolver_busqueda_gui(escenario, unidad_id, objetivo, algoritmo, heuristica=
 
     informe = verificar_solucion(escenario.tablero, resultado, unidad.posicion, tuple(objetivo))
     return resultado, informe
+
+
+def preparar_estado_inicial(escenario, profundidad=None, usar_poda=None):
+    """Estado inicial 1 vs 1 y parámetros efectivos para adversarial/partida.
+
+    Purpose:            envolver main._preparar_fase_4 para la GUI, fallando
+                        con un mensaje claro en vez de devolver un estado None
+                        cuando el escenario no tiene unidad de algún bando.
+    Preconditions:      escenario viene de cargar_escenario (válido);
+                        profundidad y usar_poda son la elección del usuario en
+                        la GUI, o None para usar la sugerencia del escenario.
+    Postconditions:     devuelve (estado, unidad_a, unidad_b, profundidad,
+                        usar_poda, orden), igual que main._preparar_fase_4.
+                        Lanza ErrorControlador si falta una unidad de algún
+                        bando. No modifica nada.
+    Complexity:         O(u) en tiempo, u = número de unidades; O(1) en espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con tests/test_controlador.py.
+    """
+    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = main._preparar_fase_4(
+        escenario, profundidad, usar_poda)
+    if estado is None:
+        raise ErrorControlador(
+            "Se necesita al menos una unidad de cada bando (A y B) para los modos "
+            "adversarial y partida.")
+    return estado, unidad_a, unidad_b, profundidad, usar_poda, orden
+
+
+def evaluar_adversarial(escenario, profundidad=None, usar_poda=None):
+    """Evalúa el estado inicial del escenario y elige una jugada (sin avanzarla).
+
+    Purpose:            cumplir el modo 'adversarial' de la GUI: decidir con
+                        Minimax/alfa-beta la acción del bando del turno sobre
+                        el estado inicial del escenario, sin mover ninguna
+                        unidad.
+    Preconditions:      escenario viene de cargar_escenario (válido);
+                        profundidad y usar_poda son la elección del usuario en
+                        la GUI, o None para usar la sugerencia del escenario.
+    Postconditions:     devuelve un dict con claves "estado", "accion",
+                        "metricas", "unidad_a", "unidad_b" e "ignoradas" (ids
+                        de unidades fuera del modelo 1 vs 1). Lanza
+                        ErrorControlador si falta una unidad de algún bando o
+                        si no hay acciones legales para el bando del turno. No
+                        modifica nada.
+    Complexity:         O(b^d) con Minimax puro, O(b^(d/2)) con alfa-beta
+                        (buen orden); b = factor de ramificación (<=4).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con tests/test_controlador.py.
+    """
+    estado, unidad_a, unidad_b, profundidad, usar_poda, orden = preparar_estado_inicial(
+        escenario, profundidad, usar_poda)
+    ignoradas = tuple(
+        u.id for u in escenario.unidades if u.id not in (unidad_a.id, unidad_b.id))
+
+    agente = MinimaxAgent(estado.turno, profundidad=profundidad, usar_poda=usar_poda,
+                           orden_direcciones=orden)
+    accion, metricas = agente.seleccionar_movimiento(
+        estado, escenario.tablero, escenario.tablero.base_a, escenario.tablero.base_b)
+    if accion is None:
+        raise ErrorControlador("No hay acciones legales para el bando que debe actuar.")
+
+    return {
+        "estado": estado,
+        "accion": accion,
+        "metricas": metricas,
+        "unidad_a": unidad_a,
+        "unidad_b": unidad_b,
+        "ignoradas": ignoradas,
+    }

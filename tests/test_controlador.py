@@ -2,11 +2,14 @@ import os
 import unittest
 from dataclasses import replace
 
-from src.scenario.escenario import Unidad
+from dataclasses import replace as _replace
+
+from src.models.board import Board
+from src.scenario.escenario import Escenario, Unidad
 from src.scenario.loader import cargar_escenario
 from src.ui.controlador import (
     ErrorControlador, unidades_con_posiciones, portador_unidad_id, recurso_pos_inicial,
-    resolver_busqueda_gui,
+    resolver_busqueda_gui, preparar_estado_inicial, evaluar_adversarial,
 )
 from tests.base import RAIZ
 
@@ -74,3 +77,40 @@ class TestResolverBusquedaGui(unittest.TestCase):
         escenario = cargar_escenario(ruta_config("caso_obstaculo.json"))
         with self.assertRaises(ErrorControlador):
             resolver_busqueda_gui(escenario, "A1", (2, 4), "MAGIA")
+
+
+class TestPrepararEstadoInicial(unittest.TestCase):
+    def test_falta_unidad_de_un_bando_lanza_error_controlador(self):
+        escenario = cargar_escenario(ruta_config("caso_adversarial.json"))
+        solo_a = _replace(escenario, unidades=tuple(
+            u for u in escenario.unidades if u.bando == "A"))
+        with self.assertRaises(ErrorControlador):
+            preparar_estado_inicial(solo_a)
+
+
+class TestEvaluarAdversarial(unittest.TestCase):
+    def test_caso_minimo_7_profundidad_1_agarra_el_recurso(self):
+        escenario = cargar_escenario(ruta_config("caso_adversarial.json"))
+        resultado = evaluar_adversarial(escenario, profundidad=1)
+        self.assertEqual(resultado["accion"], (2, 2),
+                          f"esperado: (2, 2); obtenido: {resultado['accion']}")
+
+    def test_caso_minimo_7_profundidad_3_se_repliega(self):
+        escenario = cargar_escenario(ruta_config("caso_adversarial.json"))
+        resultado = evaluar_adversarial(escenario, profundidad=3)
+        self.assertEqual(resultado["accion"], (1, 1),
+                          f"esperado: (1, 1); obtenido: {resultado['accion']}")
+
+    def test_sin_acciones_legales_lanza_error_controlador(self):
+        tablero = Board(
+            filas=1, columnas=1,
+            tipos_terreno={"camino": {"costo": 1, "transitable": True}},
+            terreno=[["camino"]], base_a=(0, 0), base_b=(0, 0))
+        escenario = Escenario(
+            tablero=tablero,
+            unidades=(Unidad("A1", "A", "estandar", (0, 0)),
+                      Unidad("B1", "B", "estandar", (0, 0))),
+            turno="A", recurso=(0, 0), portador_recurso=None,
+            profundidad_maxima_minimax=2, prueba=None)
+        with self.assertRaises(ErrorControlador):
+            evaluar_adversarial(escenario, profundidad=2)
