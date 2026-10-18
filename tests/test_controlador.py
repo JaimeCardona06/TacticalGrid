@@ -5,7 +5,8 @@ from dataclasses import replace
 from src.scenario.escenario import Unidad
 from src.scenario.loader import cargar_escenario
 from src.ui.controlador import (
-    unidades_con_posiciones, portador_unidad_id, recurso_pos_inicial,
+    ErrorControlador, unidades_con_posiciones, portador_unidad_id, recurso_pos_inicial,
+    resolver_busqueda_gui,
 )
 from tests.base import RAIZ
 
@@ -53,3 +54,23 @@ class TestRecursoPosInicial(unittest.TestCase):
         escenario_con_portador = replace(escenario, portador_recurso=portador_id)
         self.assertEqual(
             recurso_pos_inicial(escenario_con_portador), escenario.unidades[0].posicion)
+
+
+class TestResolverBusquedaGui(unittest.TestCase):
+    def test_bfs_resuelve_el_caso_del_obstaculo(self):
+        escenario = cargar_escenario(ruta_config("caso_obstaculo.json"))
+        resultado, informe = resolver_busqueda_gui(
+            escenario, "A1", (2, 4), "BFS")
+        self.assertTrue(resultado.exito)
+        self.assertEqual(resultado.costo, 8, f"esperado: 8; obtenido: {resultado.costo}")
+        self.assertTrue(informe.valido, informe.problemas)
+
+    def test_unidad_inexistente_lanza_error_controlador(self):
+        escenario = cargar_escenario(ruta_config("caso_obstaculo.json"))
+        with self.assertRaises(ErrorControlador):
+            resolver_busqueda_gui(escenario, "ZZZ", (2, 4), "BFS")
+
+    def test_algoritmo_desconocido_lanza_error_controlador(self):
+        escenario = cargar_escenario(ruta_config("caso_obstaculo.json"))
+        with self.assertRaises(ErrorControlador):
+            resolver_busqueda_gui(escenario, "A1", (2, 4), "MAGIA")

@@ -7,6 +7,10 @@ con unittest igual que el resto del proyecto.
 """
 from dataclasses import replace
 
+import main
+from src.game.navegacion import ProblemaNavegacion
+from src.game.verificador import verificar_solucion
+
 
 class ErrorControlador(Exception):
     """Error de orquestación con un mensaje ya listo para mostrar al usuario."""
@@ -90,3 +94,40 @@ def recurso_pos_inicial(escenario):
             if unidad.id == escenario.portador_recurso:
                 return unidad.posicion
     return escenario.recurso
+
+
+def resolver_busqueda_gui(escenario, unidad_id, objetivo, algoritmo, heuristica="manhattan", k=2):
+    """Resuelve y verifica una búsqueda para la pestaña Búsqueda de la GUI.
+
+    Purpose:            envolver ProblemaNavegacion + main.resolver_busqueda +
+                        verificar_solucion para que la GUI reciba datos listos
+                        para mostrar, sin tener que conocer esas tres piezas ni
+                        manejar sus excepciones por separado.
+    Preconditions:      escenario viene de cargar_escenario (válido); unidad_id
+                        es el id elegido en el combobox de la GUI; objetivo es
+                        (fila, columna); algoritmo/heuristica/k son la
+                        elección del usuario en los controles de la GUI.
+    Postconditions:     devuelve (resultado, informe): resultado es el
+                        ResultadoBusqueda del algoritmo pedido e informe es el
+                        InformeVerificacion de esa solución. Lanza
+                        ErrorControlador, con un mensaje listo para mostrar, si
+                        unidad_id no existe en escenario.unidades o si
+                        algoritmo/heuristica/k no son válidos (ValueError de
+                        main.resolver_busqueda). No modifica nada.
+    Complexity:         la del algoritmo elegido más la verificación O(n).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con tests/test_controlador.py.
+    """
+    unidad = next((u for u in escenario.unidades if u.id == unidad_id), None)
+    if unidad is None:
+        raise ErrorControlador(f"La unidad {unidad_id!r} no existe en el escenario.")
+
+    problema = ProblemaNavegacion(escenario.tablero, unidad.posicion, tuple(objetivo))
+    try:
+        resultado = main.resolver_busqueda(problema, algoritmo, heuristica, k)
+    except ValueError as error:
+        raise ErrorControlador(str(error))
+
+    informe = verificar_solucion(escenario.tablero, resultado, unidad.posicion, tuple(objetivo))
+    return resultado, informe
