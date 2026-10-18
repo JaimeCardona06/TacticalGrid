@@ -101,13 +101,14 @@ Elige el algoritmo [1-5, Enter = A_ESTRELLA]:
 
 ### 6.2 Partida (`partida`)
 
-Un renglón por turno con: bando, acción, valor de la utilidad, nodos generados/evaluados, podas,
-profundidad efectiva, **Legal sí/NO** y tiempo. Al final: ganador (o empate a los 100 turnos) y un
-resumen acumulado por bando.
+Un renglón por turno con: bando, **unidad que mueve y celda destino**, valor de la utilidad, nodos
+generados/evaluados, podas, profundidad efectiva, **Legal sí/NO** y tiempo. Al final: ganador (o
+empate a los 100 turnos) y un resumen acumulado por bando. Juegan **todas las unidades** del
+escenario (modelo N vs N; con 3 vs 3 la ramificación es ≤ 12 por turno).
 
 ### 6.3 Adversarial (`adversarial`)
 
-Evalúa una sola jugada: estado evaluado, acción elegida, verificación de legalidad
+Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación de legalidad
 (`LEGAL/ILEGAL` + motivo), valor y métricas (nodos, podas, profundidad efectiva, tiempo).
 
 ## 7. Experimentos guiados (para la sustentación)
@@ -122,12 +123,14 @@ Evalúa una sola jugada: estado evaluado, acción elegida, verificación de lega
 | Minimax vs alfa-beta | `--algoritmo MINIMAX` y `--algoritmo ALFA_BETA` (d=3) | Misma acción y valor; alfa-beta poda y evalúa menos nodos |
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
+| Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando); A gana en 11 turnos, cada acción verificada |
+| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 B gana en 68 turnos; con d=3 la partida empata a 100 (empates de valor: todas las jugadas cercanas a la victoria valen −10000 y desempata el orden de generación) |
 | Nombres propios de terreno | `python main.py config/mapa_agnostico.json --algoritmo UCS` | El sistema funciona con "arena"/"lava"/"roca" (costos del JSON) |
 
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 275 pruebas + 172 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 283 pruebas + 172 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -138,7 +141,8 @@ reproducibles en `config/caso_*.json`.
 ## 9. Escenarios incluidos (`config/`)
 
 - `mapa_ejemplo.json`: escenario de la pág. 6 del enunciado (4x4).
-- `mapa_partida.json`: partida rápida (6x6).
+- `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
+- `mapa_3v3.json`: partida 3 vs 3 (5x5; las 6 unidades activas, d=2).
 - `mapa_grande.json`: partida de gran escala (20x20, 3 unidades por bando).
 - `caso_bfs_vs_ucs.json`: ruta corta (BFS) vs ruta económica (UCS).
 - `caso_obstaculo.json`: muro que obliga a rodear (BFS/DFS/heurísticas).

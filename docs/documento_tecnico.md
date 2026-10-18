@@ -54,15 +54,19 @@ probada y medida:
 `EstadoJuego(pos_a, pos_b, portador, turno, recurso_pos)`. Dos estados con las mismas posiciones
 físicas son **estados distintos** si cambia el portador del recurso (caso mínimo 6). Incluye:
 
-- posición de cada unidad, bando del turno,
-- quién transporta el recurso (`None` si está libre) y dónde está el recurso.
+- **posiciones de TODAS las unidades** de cada bando (`pos_a`/`pos_b`: tuplas de celdas, en el orden
+  del escenario),
+- bando del turno,
+- **portador como identidad de unidad** `(bando, índice)` (`None` si está libre) y la celda del recurso,
+- **acción** = `(índice de la unidad en su bando, celda destino)`: en cada turno el bando activo
+  elige qué unidad mueve y hacia dónde (modelo **N vs N**, regla "una unidad y una acción por turno").
 
-**Decisión de diseño 1 vs 1:** el bucle adversarial modela UNA unidad por bando (la primera de cada
-bando en el JSON; el resto se avisa e ignora). Motivo: el árbol de Minimax cuesta O(b^d) con
-b ≈ 4 por unidad que mueve el bando del turno; modelar todas las unidades multiplica el factor de
-ramificación y exigiría más profundidad para que una jugada tenga efecto, volviendo intratable la
-demostración con d ≥ 3. El formato JSON y el validador sí admiten varias unidades por bando
-(`mapa_grande.json` trae 3 por bando); es el bucle adversarial el que usa solo la primera pareja.
+**Ramificación y profundidad:** por turno se generan hasta `u × 4` acciones (u = unidades del bando
+en turno). Con 3 unidades por bando queda acotada en **12**, así que una decisión de profundidad d
+cuesta ≤ 12^d nodos sin poda y mucho menos con alfa-beta (medido: 0.3–3 ms por decisión a d=2–3 en
+los mapas 3 vs 3, con cientos de nodos). El enunciado pide "al menos tres unidades por bando" y este
+modelo las usa todas (`mapa_3v3.json` y `mapa_grande.json` traen 3 por bando); los escenarios 1 vs 1
+conservan comportamiento y métricas.
 
 ### 2.4 Reglas del juego (deterministas)
 
@@ -167,6 +171,7 @@ completo). La opción se ejecuta en cada prueba de búsqueda y se imprime el inf
 
 - `minimax_puro`: explora el árbol completo hasta la profundidad dada alternando MAX (bando A) y MIN (bando B).
 - `minimax_alphabeta`: mismo resultado con cortes alfa/beta; en el caso 8 recorre menos de la mitad de los nodos del árbol.
+- En cada turno el bando activo elige **qué unidad mueve y hacia dónde** (modelo N vs N): la ramificación es unidades del bando × 4 direcciones (≤ 12 con 3 por bando).
 - La profundidad es configurable sin tocar código (JSON `juego.profundidad_maxima_minimax`, bandera `--profundidad` o menú).
 - El orden de generación de acciones es parametrizable (`orden_direcciones`): cambiar el orden cambia la cantidad de poda (caso 9).
 
@@ -188,7 +193,8 @@ celda del portador (limitación discutida en la sección 10).
 nodos visitados/generados/evaluados, podas (alfa, beta y totales) y **profundidad efectiva**
 (mayor nivel realmente evaluado; puede ser menor que la pedida si el juego termina antes).
 Además, `verificar_accion` comprueba con datos crudos del tablero que la acción elegida sea legal
-(vecina ortogonal, dentro del mapa y transitable), sin confiar en los sucesores generados por la
+—la unidad indicada existe en su bando y la celda destino es su vecina ortogonal, está dentro del
+mapa y es transitable—, sin confiar en los sucesores generados por la
 propia búsqueda. El resultado alimenta la columna `Legal sí/NO` de la partida y la línea
 `Verificación de legalidad` del modo adversarial.
 
@@ -218,7 +224,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 275 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 283 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -276,12 +282,13 @@ solución óptima y la exploración crece con k.
 los sucesores se comportan distinto: sin portador el recurso queda en (2,2); transportándolo, viaja
 con A a (2,0).
 
-**Caso 7 — Decisión adversarial** (`config/caso_adversarial.json`, A a un paso del recurso, B pegado a él):
+**Caso 7 — Decisión adversarial** (`config/caso_adversarial.json`, A a un paso del recurso, B pegado
+a él; la acción se reporta como `unidad → celda destino` y A1 es la única unidad de A):
 
 | Profundidad | Acción de A | Valor | Legal |
 |---|---|---|---|
-| 1 (miope) | (2,2) — agarra el recurso | **+4600** | Sí |
-| 3 | (1,1) — no avanza al recurso | **−4800** | Sí |
+| 1 (miope) | A1 → (2,2) — agarra el recurso | **+4600** | Sí |
+| 3 | A1 → (1,1) — no avanza al recurso | **−4800** | Sí |
 
 La evaluación miope agarra el recurso; con profundidad 3, Minimax anticipa que B se lo roba al
 instante y prefiere replegarse. La mejor decisión deja de coincidir con "avanzar directamente al recurso".
@@ -290,8 +297,8 @@ instante y prefiere replegarse. La mejor decisión deja de coincidir con "avanza
 
 | Algoritmo | Acción | Valor | Visitados | Generados | Evaluados | Podas |
 |---|---|---|---|---|---|---|
-| Minimax puro | (1,1) | −4800 | 59 | 58 | 42 | 0 |
-| Alfa-beta | (1,1) | −4800 | **27** | 38 | 16 | **5** |
+| Minimax puro | A1 → (1,1) | −4800 | 59 | 58 | 42 | 0 |
+| Alfa-beta | A1 → (1,1) | −4800 | **27** | 38 | 16 | **5** |
 
 Misma decisión y mismo valor; alfa-beta evalúa menos de la mitad del árbol.
 
@@ -299,8 +306,8 @@ Misma decisión y mismo valor; alfa-beta evalúa menos de la mitad del árbol.
 
 | Orden de sucesores | Acción | Valor | Visitados | Podas |
 |---|---|---|---|---|
-| Arriba, derecha, abajo, izquierda | (1,1) | −4800 | 27 | 5 |
-| Abajo, izquierda, arriba, derecha | (3,1) | −4800 | 43 | 4 |
+| Arriba, derecha, abajo, izquierda | A1 → (1,1) | −4800 | 27 | 5 |
+| Abajo, izquierda, arriba, derecha | A1 → (3,1) | −4800 | 43 | 4 |
 
 Mismo valor óptimo; cambiar el orden altera la cantidad de poda (y puede cambiar la acción ante empates).
 
@@ -308,10 +315,10 @@ Mismo valor óptimo; cambiar el orden altera la cantidad de poda (y puede cambia
 
 | Profundidad | Acción | Valor | Generados | Evaluados | Podas | Visitados | Prof. efectiva |
 |---|---|---|---|---|---|---|---|
-| 1 | (2,2) | +4600 | 4 | 4 | 0 | 5 | 1 |
-| 2 | (1,1) | −4800 | 16 | 6 | 3 | 11 | 2 |
-| 3 | (1,1) | −4800 | 38 | 16 | 5 | 27 | 3 |
-| 4 | (1,1) | −4900 | 99 | 35 | 18 | 62 | 4 |
+| 1 | A1 → (2,2) | +4600 | 4 | 4 | 0 | 5 | 1 |
+| 2 | A1 → (1,1) | −4800 | 16 | 6 | 3 | 11 | 2 |
+| 3 | A1 → (1,1) | −4800 | 38 | 16 | 5 | 27 | 3 |
+| 4 | A1 → (1,1) | −4900 | 99 | 35 | 18 | 62 | 4 |
 
 Los nodos crecen con la profundidad; el valor y la acción cambian al "ver" más jugadas (d=1 es
 optimista porque no ve el robo). La profundidad efectiva reportada siempre iguala la realmente
@@ -323,10 +330,19 @@ evaluada.
 - **Variación de k en Beam:** caso 5; además `k=2` encuentra la solución con solo 34 nodos generados
   frente a 30 de UCS, mientras `k=1` no explora lo suficiente (9 nodos) y falla.
 - **Comparación de heurísticas:** caso 4; `distancia_bfs` es la única que "ve" el muro.
-- **Partidas completas:** `mapa_partida.json` (6x6) — gana B en 22 turnos (A: 176 nodos generados, 87
-  evaluados, 25 podas, ~0.5 ms; B: 203 / 109 / 26, ~0.5 ms). `mapa_grande.json` (20x20, todas las
-  acciones verificadas como legales) — gana B en 70 turnos (A: 1297 / 673 / 149, ~2.8 ms; B: 1474 /
-  776 / 169, ~3.0 ms). Tiempos medidos en la máquina de desarrollo; el orden de magnitud es el relevante.
+- **Partidas completas (1 vs 1):** `mapa_partida.json` (6x6) — gana B en 22 turnos (A: 176 nodos
+  generados, 87 evaluados, 25 podas, ~0.5 ms; B: 203 / 109 / 26, ~0.5 ms), **métricas idénticas a
+  las reportadas con el modelo anterior** (la generalización N vs N no alteró los escenarios 1 vs 1).
+- **Partidas completas (3 vs 3, todas las unidades activas y verificadas):**
+  - `mapa_3v3.json` (5x5, d=2): gana A en 11 turnos (A: 6 decisiones, 650 / 247 / 45; B: 5, 562 /
+    440 / 48; ~0.4 ms por decisión).
+  - `mapa_grande.json` (20x20) con `--profundidad 2`: gana B en 68 turnos (34 decisiones por bando,
+    ~3.3k nodos generados por bando, ~0.35 ms por decisión).
+  - `mapa_grande.json` (20x20) con la profundidad 3 sugerida por el JSON: **empata a 100 turnos**.
+    Desde que el portador de B quedó a un paso de su base, *todas* las jugadas de B valen −10000 en
+    el horizonte (la victoria entra al árbol por cualquier línea) y el desempate por orden de
+    generación elige mover otra unidad: es el fenómeno clásico de empates de valor con profundidad
+    limitada (sección 10) y un buen contraste del efecto de la profundidad en 3 vs 3.
 
 ### 8.3 Verificación de las soluciones
 
@@ -348,13 +364,13 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
 |---|---|---|---|
 | `Board` (vecinos, costo, transitabilidad) | O(1) por celda | O(f·c) el tablero | Lectura O(1) del catálogo |
 | Sucesores de navegación | O(1) (≤ 4 vecinos) | O(1) | |
-| Sucesores del estado adversarial | O(1) (≤ 4) | O(1) | Recoger/robar en O(1) |
+| Sucesores del estado adversarial | O(u · d) | O(u) | u = unidades del bando en turno, d ≤ 4; recoger/robar en O(1) |
 | BFS / DFS | O(V + E) | O(V) | E ≤ 4V en cuadrícula |
 | UCS | O(E log E) | O(V) | Montículo (heap de prioridades) |
 | A* | O(E log E) peor caso; menos con buena h | O(V) | h admisible/consistente ⇒ óptimo |
 | `distancia_bfs` (preprocesamiento) | O(f·c) una vez | O(f·c) | Luego h en O(1) |
 | Beam Search | O(V · b log b), b = k·4 candidatos/nivel | O(k) de frontera + O(V) de cerrados | No completo ni óptimo |
-| Minimax puro | O(b^d) | O(d) pila | b ≈ 4 |
+| Minimax puro | O(b^d) | O(d) pila | b = u × 4 (≤ 12 con 3 vs 3) |
 | Alfa-beta | O(b^d) peor caso; O(b^(d/2)) con buen orden | O(d) | Mismo resultado que puro |
 | Verificador | O(n) con n = longitud del camino; O(f·c) si no hay éxito | O(n) | Independiente de Board y algoritmos |
 
@@ -362,9 +378,12 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
 
 ## 10. Limitaciones
 
-1. **1 vs 1 en la fase adversarial** (decisión justificada en 2.3): los roles "proteger zona" o
-   "bloquear posición" del enunciado no se modelan como acciones separadas; el bloqueo efectivo se
-   da por el robo al pisar al portador.
+1. **Empates de valor con profundidad limitada:** cuando todas las líneas del horizonte llevan a la
+   misma victoria, cualquier acción conserva el valor (±10000) y el desempate es el orden de
+   generación; el bando puede no forzar la victoria inmediata (observado en `mapa_grande` 3 vs 3 a
+   d=3, que empata a 100 turnos con el portador de B a un paso; con d=2 el juego cierra en 68 turnos).
+   Es el mismo mecanismo que hace del orden de acciones un experimento (caso 9), visto aquí como
+   limitación de la profundidad limitada.
 2. **La utilidad no penaliza la proximidad entre unidades**: las acciones de intercepción emergen
    del robo, no de un término explícito de distancia entre rivales. Cambiar los pesos es directo
    (sección 5.2) y es un experimento recomendado para la sustentación.
@@ -398,11 +417,11 @@ como apoyo en todas las fases del proyecto.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **275 pruebas y 172 subtests en verde**
+- Ejecución y verificación de la suite completa: **283 pruebas y 172 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
-- Simulación de partidas completas en consola (6x6 y 20x20) comprobando que cada acción reportada es
-  legal y que las métricas coinciden con las esperadas.
+- Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que
+  cada acción reportada es legal y que las métricas coinciden con las esperadas.
 - Revisión del modelo de estado y de las reglas (recoger, transportar, robar, victoria, empate) con
   escenarios de control construidos a mano.
 - Verificación de que los resultados de cada algoritmo coinciden con el comportamiento esperado
@@ -421,6 +440,7 @@ del repositorio, incluido el generado con apoyo de IA, y conoce los experimentos
 - `src/search/`: BFS, DFS, UCS, A*, Beam y heurísticas.
 - `src/game/`: problema de navegación y verificador independiente.
 - `src/adversarial/`: Minimax, alfa-beta, utilidad y agente con verificación de legalidad.
-- `tests/`: suite completa, incluidos los 10 casos mínimos (`test_casos_minimos.py`) y la
-  compatibilidad de nombres de terreno (`test_mapa_agnostico.py`).
-- `config/`: escenarios de desarrollo, experimentos y compatibilidad.
+- `tests/`: suite completa, incluidos los 10 casos mínimos (`test_casos_minimos.py`), el modelo
+  N vs N (`test_nvn.py`) y la compatibilidad de nombres de terreno (`test_mapa_agnostico.py`).
+- `config/`: escenarios de desarrollo, experimentos (incluido el 3 vs 3) y compatibilidad.
+- `docs/decisiones.md`: convenciones compartidas (métricas, desempates y modelo adversarial N vs N).
