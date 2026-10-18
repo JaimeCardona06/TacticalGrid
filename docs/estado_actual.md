@@ -18,7 +18,7 @@ antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual
 | Adversarial: Minimax puro y alfa-beta, utilidad, agente | ✅ Completo |
 | Verificación de legalidad de acciones adversariales | ✅ Completo |
 | CLI (`main.py`): banderas, menú interactivo, modos busqueda/partida/adversarial | ✅ Completo |
-| Suite de pruebas automatizadas | ✅ 293 pruebas + subtests, todas en verde |
+| Suite de pruebas automatizadas | ✅ 310 pruebas + subtests, todas en verde |
 | Interfaz gráfica (`src/ui/gui.py`) | ✅ Completo (Tkinter: busqueda/adversarial/partida) |
 | Carpetas `scenarios/` y `assets/` | ⏳ Vacías (reservadas, sin uso todavía) |
 | Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ⏳ Pendiente de completar |
@@ -39,8 +39,9 @@ administrativo (nombres del equipo) y el uso futuro de las carpetas reservadas (
 3. **Ejecución según el modo:**
    - `busqueda`: resuelve con el algoritmo elegido (BFS/DFS/UCS/A*/Beam) la ruta de una unidad a un
      objetivo, y el verificador independiente confirma que la solución es válida.
-   - `partida`: simula turno a turno una partida completa 1 vs 1 con dos agentes Minimax, hasta que
-     alguien gane o se llegue al límite de 100 turnos (empate).
+   - `partida`: simula turno a turno una partida completa (modelo N vs N: todas las unidades de
+     cada bando) con dos agentes Minimax, hasta que alguien gane o se llegue al límite de 100
+     turnos (empate).
    - `adversarial`: evalúa el estado actual y decide una sola jugada con Minimax o alfa-beta,
      verificando que sea legal.
 4. **Selección del algoritmo:** la decide el usuario en tiempo de ejecución (banderas de consola >
@@ -86,8 +87,8 @@ python -m unittest discover -s tests -t . -v
 python -m pytest -q
 ```
 
-Última corrida real (2026-10-18): **293 pruebas, 0 fallos, ~1.6 s**
-(`python -m unittest discover -s tests -t .`, salida `Ran 293 tests ... OK`).
+Última corrida real (2026-10-18): **310 pruebas, 0 fallos, ~1.6 s**
+(`python -m unittest discover -s tests -t .`, salida `Ran 310 tests ... OK`).
 
 Los 10 casos mínimos exigidos por el enunciado están aislados en `tests/test_casos_minimos.py`,
 cada uno con su escenario reproducible en `config/caso_*.json`, y comparan explícitamente el valor

@@ -205,12 +205,13 @@ actual en la esquina.
   y, si aplica, la heurística y `k`. "Resolver" dibuja el camino encontrado sobre el tablero y
   muestra las métricas (éxito, costo, estados generados/expandidos, máximo de frontera, tiempo) y
   el informe de verificación independiente, igual que en consola.
-- **Adversarial:** elige profundidad y si se usa poda alfa-beta. "Evaluar jugada" decide una acción
-  para el bando del turno y resalta la celda destino en el tablero **sin mover la unidad**; el
-  panel muestra la acción, su legalidad, el valor obtenido y las métricas (nodos, podas,
-  profundidad efectiva, tiempo).
+- **Adversarial:** elige profundidad y si se usa poda alfa-beta. "Evaluar jugada" decide, entre
+  TODAS las unidades del bando del turno (modelo N vs N), cuál se mueve y a dónde, y resalta esa
+  celda destino en el tablero **sin mover la unidad**; el panel muestra qué unidad fue elegida, su
+  legalidad, el valor obtenido y las métricas (nodos, podas, profundidad efectiva, tiempo).
 - **Partida:** elige profundidad y poda, luego "Reiniciar partida" para preparar la partida desde
-  el estado inicial del escenario. Cada clic en "Siguiente turno" juega un turno: mueve la unidad
-  correspondiente en el tablero y agrega una fila a la tabla (bando, acción, valor, nodos, podas,
-  profundidad, legalidad, tiempo). Al terminar la partida (victoria o empate por límite de turnos)
-  el botón se deshabilita y aparece el desenlace con el resumen acumulado por bando.
+  el estado inicial del escenario (con todas las unidades de cada bando, 1 vs 1 o 3 vs 3 según el
+  escenario). Cada clic en "Siguiente turno" juega un turno: mueve la unidad elegida por el agente
+  en el tablero y agrega una fila a la tabla (turno, bando, **unidad**, destino, valor, nodos,
+  podas, profundidad, legalidad, tiempo). Al terminar la partida (victoria o empate por límite de
+  turnos) el botón se deshabilita y aparece el desenlace con el resumen acumulado por bando.
