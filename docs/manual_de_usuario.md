@@ -73,18 +73,29 @@ python main.py config/caso_adversarial.json --algoritmo MINIMAX          # Minim
 Si ejecutas **sin banderas** y estás en una terminal interactiva, aparece un menú:
 
 ```
-$ python main.py config/caso_obstaculo.json
+$ python main.py config/caso_beam.json
 
 Algoritmos disponibles para la búsqueda:
   1) BFS (anchura)
   2) DFS (profundidad)
   3) UCS (costo uniforme)
-  4) A* (heurística)   <- sugerido por el JSON
-  5) Beam Search (haz)
-Elige el algoritmo [1-5, Enter = A_ESTRELLA]:
+  4) A* (heurística)
+  5) Beam Search (haz)   <- sugerido por el JSON
+Elige el algoritmo [1-5, Enter = BEAM]:            (Enter)
+
+Heurísticas disponibles para A*/Beam:
+  1) manhattan (pasos x costo mínimo)
+  2) manhattan_pasos (solo pasos)
+  3) distancia_bfs (rodeando muros)
+Elige la heurística [1-3, Enter = manhattan]:      (Enter)
+
+Ancho del haz k [Enter = 2]:                       (Enter)
 ```
 
 - Escribe el número y Enter, o **Enter solo** para aceptar la sugerencia del JSON.
+- Si el algoritmo es **A* o Beam**, se pregunta además la **heurística**; con **Beam** se
+  pregunta también el ancho **k**. Lo mismo aplica si pasas `--algoritmo A*`/`BEAM` sin las otras
+  banderas; `--heuristica`, `--k` y `--no-preguntar` evitan esas preguntas.
 - En los modos de juego el menú pregunta además `Minimax puro` vs `Alfa-beta` y la profundidad.
 - Sin terminal interactiva (por ejemplo, en un script) no hay menú: se usa el JSON (o `--no-preguntar`).
 

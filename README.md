@@ -63,7 +63,7 @@ python main.py config/mapa_partida.json    # sin banderas: menú interactivo en 
 | `--profundidad` | entero ≥ 1 | partida/adversarial |
 | `--no-preguntar` | — | usa la sugerencia del JSON sin menú (automatización) |
 
-Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado** para elegir el algoritmo (Enter acepta la sugerencia del JSON).
+Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado** para elegir el algoritmo (Enter acepta la sugerencia del JSON); si el algoritmo es A* o Beam, pregunta además la heurística y, en Beam, el ancho `k` (las banderas `--heuristica`/`--k` y `--no-preguntar` evitan esas preguntas).
 
 ## Pruebas
 

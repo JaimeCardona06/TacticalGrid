@@ -206,7 +206,7 @@ Regla del proyecto: **el usuario elige el algoritmo**, no el JSON (el JSON solo 
 defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia del JSON**.
 
 - Banderas: `--algoritmo`, `--heuristica`, `--k`, `--profundidad`, `--no-preguntar`.
-- Sin banderas y con terminal interactiva, se muestra un menú numerado (Enter acepta la sugerencia).
+- Sin banderas y con terminal interactiva, se muestra un menú numerado (Enter acepta la sugerencia). Para A*/Beam se pregunta además la heurística y, en Beam, el ancho k; con `--algoritmo` dado se pregunta solo lo que falte, y `--no-preguntar` o la ausencia de terminal lo desactivan.
 - Sin terminal interactiva (automatización, CI), se usa directamente el JSON.
 - La interfaz gráfica (en desarrollo por otro integrante) consume la misma API:
   `resolver_busqueda(problema, algoritmo, heuristica, k)` y
