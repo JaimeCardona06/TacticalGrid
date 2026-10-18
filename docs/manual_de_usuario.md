@@ -131,6 +131,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Obstáculo y heurística | `python main.py config/caso_obstaculo.json --algoritmo A* --heuristica manhattan` y `--heuristica distancia_bfs` | Mismo costo 8; `distancia_bfs` expande menos |
 | Memoria limitada (k) | `python main.py config/caso_beam.json --algoritmo BEAM --k 1` … `--k 8` | Con k=1 falla (aunque hay ruta); con k≥2 encuentra el costo 10 |
 | Decisión adversarial | `python main.py config/caso_adversarial.json --profundidad 1` y `--profundidad 3` | Con d=1 agarra el recurso (+4600); con d=3 anticipa el robo y elige otra celda (−4800) |
+| Decisión adversarial 3 vs 3 | `python main.py config/caso_adversarial_3v3.json --profundidad 2` | Una decisión con las 6 unidades; la unidad elegida se verifica LEGAL (valor 0: carrera empatada con B, A3 y B3 a 2 pasos del recurso) |
 | Minimax vs alfa-beta | `--algoritmo MINIMAX` y `--algoritmo ALFA_BETA` (d=3) | Misma acción y valor; alfa-beta poda y evalúa menos nodos |
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
@@ -159,6 +160,7 @@ reproducibles en `config/caso_*.json`.
 - `caso_obstaculo.json`: muro que obliga a rodear (BFS/DFS/heurísticas).
 - `caso_beam.json`: señuelo que hace fallar a Beam con k=1.
 - `caso_adversarial.json`: decisión adversarial (casos 7 a 10).
+- `caso_adversarial_3v3.json`: decisión adversarial con 3 unidades por bando (5x5).
 - `mapa_agnostico.json`: terrenos con nombres propios ("arena", "lava", "roca").
 
 ## 10. Problemas comunes

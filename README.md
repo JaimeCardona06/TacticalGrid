@@ -27,6 +27,7 @@ python main.py config/mapa_ejemplo.json         # prueba de búsqueda del enunci
 python main.py config/caso_obstaculo.json       # búsqueda con muro + verificación de la solución
 python main.py config/caso_beam.json            # Beam Search (k configurable en el JSON)
 python main.py config/caso_adversarial.json     # decisión adversarial (Minimax/alfa-beta)
+python main.py config/caso_adversarial_3v3.json # decisión adversarial 3 vs 3 (5x5, las 6 unidades)
 python main.py config/mapa_3v3.json             # partida 3 vs 3 (5x5, las 6 unidades activas)
 python main.py config/mapa_grande.json          # partida 20x20 (escenario de gran escala)
 ```
@@ -86,6 +87,7 @@ sus escenarios reproducibles en `config/caso_*.json`.
 - `caso_obstaculo.json`: muro que obliga a rodear (casos de heurísticas).
 - `caso_beam.json`: cambio de comportamiento según k.
 - `caso_adversarial.json`: decisión adversarial (casos mínimos 7 a 10).
+- `caso_adversarial_3v3.json`: decisión adversarial 3 vs 3 (5x5).
 - `mapa_agnostico.json`: compatibilidad con nombres de terreno propios ("arena", "lava", "roca").
 
 ## Estructura
