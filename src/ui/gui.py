@@ -158,6 +158,142 @@ class AppTacticalGrid(tk.Tk):
         self.texto_mensajes = tk.Text(panel_derecho, height=8, state="disabled")
         self.texto_mensajes.pack(side="bottom", fill="x", pady=(4, 0))
 
+        self._construir_pestana_busqueda()
+
+    def _construir_pestana_busqueda(self):
+        pestana = self.pestana_busqueda
+
+        fila_unidad = ttk.Frame(pestana)
+        fila_unidad.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_unidad, text="Unidad:").pack(side="left")
+        self.combo_unidad = ttk.Combobox(fila_unidad, state="readonly", width=10)
+        self.combo_unidad.pack(side="left", padx=4)
+
+        fila_objetivo = ttk.Frame(pestana)
+        fila_objetivo.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_objetivo, text="Objetivo (fila, col):").pack(side="left")
+        self.spin_fila = tk.Spinbox(fila_objetivo, from_=0, to=0, width=5)
+        self.spin_fila.pack(side="left", padx=4)
+        self.spin_columna = tk.Spinbox(fila_objetivo, from_=0, to=0, width=5)
+        self.spin_columna.pack(side="left", padx=4)
+
+        fila_algoritmo = ttk.Frame(pestana)
+        fila_algoritmo.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_algoritmo, text="Algoritmo:").pack(side="left")
+        self.combo_algoritmo = ttk.Combobox(
+            fila_algoritmo, state="readonly", width=8,
+            values=("BFS", "DFS", "UCS", "A*", "BEAM"))
+        self.combo_algoritmo.set("BFS")
+        self.combo_algoritmo.pack(side="left", padx=4)
+        self.combo_algoritmo.bind("<<ComboboxSelected>>", self._actualizar_controles_busqueda)
+
+        fila_heuristica = ttk.Frame(pestana)
+        fila_heuristica.pack(side="top", fill="x", pady=2)
+        ttk.Label(fila_heuristica, text="Heurística:").pack(side="left")
+        self.combo_heuristica = ttk.Combobox(
+            fila_heuristica, state="readonly", width=14,
+            values=("manhattan", "manhattan_pasos", "distancia_bfs"))
+        self.combo_heuristica.set("manhattan")
+        self.combo_heuristica.pack(side="left", padx=4)
+        ttk.Label(fila_heuristica, text="k:").pack(side="left")
+        self.spin_k = tk.Spinbox(fila_heuristica, from_=1, to=20, width=5)
+        self.spin_k.delete(0, "end")
+        self.spin_k.insert(0, "2")
+        self.spin_k.pack(side="left", padx=4)
+
+        ttk.Button(pestana, text="Resolver", command=self._resolver_busqueda).pack(
+            side="top", pady=4)
+
+        self.texto_busqueda = tk.Text(pestana, height=16, state="disabled")
+        self.texto_busqueda.pack(side="top", fill="both", expand=True)
+
+        self._actualizar_controles_busqueda()
+
+    def _actualizar_controles_busqueda(self, _evento=None):
+        usa_extras = self.combo_algoritmo.get() in ("A*", "BEAM")
+        estado = "readonly" if usa_extras else "disabled"
+        self.combo_heuristica.configure(state=estado)
+        self.spin_k.configure(state=("normal" if usa_extras else "disabled"))
+
+    def _poblar_pestana_busqueda(self):
+        ids = [u.id for u in self.escenario.unidades]
+        self.combo_unidad.configure(values=ids)
+        if ids:
+            self.combo_unidad.set(ids[0])
+
+        tablero = self.escenario.tablero
+        self.spin_fila.configure(to=max(0, tablero.filas - 1))
+        self.spin_columna.configure(to=max(0, tablero.columnas - 1))
+
+        prueba = self.escenario.prueba or {}
+        objetivo = prueba.get("objetivo")
+        fila, columna = 0, 0
+        if isinstance(objetivo, dict):
+            fila, columna = objetivo.get("fila", 0), objetivo.get("columna", 0)
+        self.spin_fila.delete(0, "end")
+        self.spin_fila.insert(0, str(fila))
+        self.spin_columna.delete(0, "end")
+        self.spin_columna.insert(0, str(columna))
+
+    def _mostrar_resultado_busqueda(self, texto):
+        self.texto_busqueda.configure(state="normal")
+        self.texto_busqueda.delete("1.0", "end")
+        self.texto_busqueda.insert("end", texto)
+        self.texto_busqueda.configure(state="disabled")
+
+    def _resolver_busqueda(self):
+        if self.escenario is None:
+            self._mostrar_resultado_busqueda("Carga un escenario primero.")
+            return
+
+        unidad_id = self.combo_unidad.get()
+        try:
+            objetivo = (int(self.spin_fila.get()), int(self.spin_columna.get()))
+        except ValueError:
+            self._mostrar_resultado_busqueda("El objetivo debe ser fila y columna numéricas.")
+            return
+
+        algoritmo = self.combo_algoritmo.get()
+        heuristica = self.combo_heuristica.get()
+        try:
+            k = int(self.spin_k.get())
+        except ValueError:
+            k = 2
+
+        try:
+            resultado, informe = controlador.resolver_busqueda_gui(
+                self.escenario, unidad_id, objetivo, algoritmo, heuristica, k)
+        except controlador.ErrorControlador as error:
+            self._mostrar_resultado_busqueda(str(error))
+            return
+
+        self._camino_resuelto = resultado.camino
+        self._refrescar_canvas()
+
+        lineas = [
+            f"Algoritmo: {resultado.algoritmo}",
+            f"Éxito: {resultado.exito}",
+            f"Costo: {resultado.costo}",
+            f"Estados generados: {resultado.estados_generados}",
+            f"Estados expandidos: {resultado.estados_expandidos}",
+            f"Máximo de frontera: {resultado.maximo_frontera}",
+            f"Tiempo: {resultado.tiempo_segundos:.4f} s",
+        ]
+        if resultado.heuristica is not None:
+            lineas.append(f"Heurística: {resultado.heuristica}")
+        if resultado.k is not None:
+            lineas.append(f"k: {resultado.k}")
+        lineas.append("")
+        lineas.append("--- Verificación independiente ---")
+        for descripcion, problemas in informe.comprobaciones:
+            lineas.append(("[ERROR] " if problemas else "[OK]    ") + descripcion)
+            for texto in problemas:
+                lineas.append(f"          - {texto}")
+        for aviso in informe.avisos:
+            lineas.append(f"[AVISO] {aviso}")
+        lineas.append("Resultado: " + ("VÁLIDA" if informe.valido else "INVÁLIDA"))
+        self._mostrar_resultado_busqueda("\n".join(lineas))
+
     def _listar_escenarios(self):
         if not os.path.isdir(CONFIG_DIR):
             return []
@@ -196,6 +332,7 @@ class AppTacticalGrid(tk.Tk):
             f"Escenario cargado: {ruta}\n"
             f"{escenario.tablero.filas}x{escenario.tablero.columnas} | "
             f"{len(escenario.unidades)} unidad(es) | turno {escenario.turno}")
+        self._poblar_pestana_busqueda()
         self._refrescar_canvas()
 
     def _refrescar_canvas(self):
