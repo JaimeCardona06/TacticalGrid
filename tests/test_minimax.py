@@ -9,7 +9,7 @@ AI usage:           Yes
 AI intervention:    la IA asistió en la estructuración de los casos de prueba y
                     en la refactorización de los tableros simulados de las pruebas.
 Student validation: Validado por el equipo ejecutando la suite completa
-                    (244 pruebas) con unittest/pytest.
+                    (290 pruebas) con unittest/pytest.
 """
 
 import unittest
@@ -134,27 +134,31 @@ class TestMinimaxAdversarial(unittest.TestCase):
         self.assertTrue(metricas["accion_legal"], "La métrica 'accion_legal' debería ser True")
 
     def test_verificar_accion_detecta_ilegales(self):
-        """El verificador del agente rechaza muros, celdas no vecinas y celdas fuera del mapa."""
+        """El verificador del agente rechaza muros, celdas no vecinas, índices inexistentes y celdas fuera del mapa."""
         tablero = TableroConMuro()
         agente = MinimaxAgent("A", profundidad=1)
         estado = EstadoJuego(
             pos_a=(0, 0), pos_b=(3, 3), portador=None, turno="A", recurso_pos=(1, 1),
         )
 
-        legal, _ = agente.verificar_accion(estado, tablero, (1, 0))
-        self.assertTrue(legal, "Mover a (1, 0) desde (0, 0) debería ser legal")
+        legal, _ = agente.verificar_accion(estado, tablero, (0, (1, 0)))
+        self.assertTrue(legal, "Mover la unidad 0 a (1, 0) desde (0, 0) debería ser legal")
 
-        legal, detalle = agente.verificar_accion(estado, tablero, (0, 1))
+        legal, detalle = agente.verificar_accion(estado, tablero, (0, (0, 1)))
         self.assertFalse(legal, "Mover a un muro debería ser ilegal")
         self.assertIn("transitable", detalle)
 
-        legal, detalle = agente.verificar_accion(estado, tablero, (2, 2))
+        legal, detalle = agente.verificar_accion(estado, tablero, (0, (2, 2)))
         self.assertFalse(legal, "Mover a una celda no vecina debería ser ilegal")
         self.assertIn("vecina", detalle)
 
-        legal, detalle = agente.verificar_accion(estado, tablero, (-1, 0))
+        legal, detalle = agente.verificar_accion(estado, tablero, (0, (-1, 0)))
         self.assertFalse(legal, "Mover fuera del mapa debería ser ilegal")
         self.assertIn("fuera del mapa", detalle)
+
+        legal, detalle = agente.verificar_accion(estado, tablero, (5, (1, 0)))
+        self.assertFalse(legal, "Un índice de unidad inexistente debería ser ilegal")
+        self.assertIn("no existe", detalle)
 
         legal, _ = agente.verificar_accion(estado, tablero, None)
         self.assertFalse(legal, "Una acción None debería ser ilegal")

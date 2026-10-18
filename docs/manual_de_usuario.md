@@ -73,18 +73,29 @@ python main.py config/caso_adversarial.json --algoritmo MINIMAX          # Minim
 Si ejecutas **sin banderas** y estás en una terminal interactiva, aparece un menú:
 
 ```
-$ python main.py config/caso_obstaculo.json
+$ python main.py config/caso_beam.json
 
 Algoritmos disponibles para la búsqueda:
   1) BFS (anchura)
   2) DFS (profundidad)
   3) UCS (costo uniforme)
-  4) A* (heurística)   <- sugerido por el JSON
-  5) Beam Search (haz)
-Elige el algoritmo [1-5, Enter = A_ESTRELLA]:
+  4) A* (heurística)
+  5) Beam Search (haz)   <- sugerido por el JSON
+Elige el algoritmo [1-5, Enter = BEAM]:            (Enter)
+
+Heurísticas disponibles para A*/Beam:
+  1) manhattan (pasos x costo mínimo)
+  2) manhattan_pasos (solo pasos)
+  3) distancia_bfs (rodeando muros)
+Elige la heurística [1-3, Enter = manhattan]:      (Enter)
+
+Ancho del haz k [Enter = 2]:                       (Enter)
 ```
 
 - Escribe el número y Enter, o **Enter solo** para aceptar la sugerencia del JSON.
+- Si el algoritmo es **A* o Beam**, se pregunta además la **heurística**; con **Beam** se
+  pregunta también el ancho **k**. Lo mismo aplica si pasas `--algoritmo A*`/`BEAM` sin las otras
+  banderas; `--heuristica`, `--k` y `--no-preguntar` evitan esas preguntas.
 - En los modos de juego el menú pregunta además `Minimax puro` vs `Alfa-beta` y la profundidad.
 - Sin terminal interactiva (por ejemplo, en un script) no hay menú: se usa el JSON (o `--no-preguntar`).
 
@@ -101,13 +112,14 @@ Elige el algoritmo [1-5, Enter = A_ESTRELLA]:
 
 ### 6.2 Partida (`partida`)
 
-Un renglón por turno con: bando, acción, valor de la utilidad, nodos generados/evaluados, podas,
-profundidad efectiva, **Legal sí/NO** y tiempo. Al final: ganador (o empate a los 100 turnos) y un
-resumen acumulado por bando.
+Un renglón por turno con: bando, **unidad que mueve y celda destino**, valor de la utilidad, nodos
+generados/evaluados, podas, profundidad efectiva, **Legal sí/NO** y tiempo. Al final: ganador (o
+empate a los 100 turnos) y un resumen acumulado por bando. Juegan **todas las unidades** del
+escenario (modelo N vs N; con 3 vs 3 la ramificación es ≤ 12 por turno).
 
 ### 6.3 Adversarial (`adversarial`)
 
-Evalúa una sola jugada: estado evaluado, acción elegida, verificación de legalidad
+Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación de legalidad
 (`LEGAL/ILEGAL` + motivo), valor y métricas (nodos, podas, profundidad efectiva, tiempo).
 
 ## 7. Experimentos guiados (para la sustentación)
@@ -119,15 +131,18 @@ Evalúa una sola jugada: estado evaluado, acción elegida, verificación de lega
 | Obstáculo y heurística | `python main.py config/caso_obstaculo.json --algoritmo A* --heuristica manhattan` y `--heuristica distancia_bfs` | Mismo costo 8; `distancia_bfs` expande menos |
 | Memoria limitada (k) | `python main.py config/caso_beam.json --algoritmo BEAM --k 1` … `--k 8` | Con k=1 falla (aunque hay ruta); con k≥2 encuentra el costo 10 |
 | Decisión adversarial | `python main.py config/caso_adversarial.json --profundidad 1` y `--profundidad 3` | Con d=1 agarra el recurso (+4600); con d=3 anticipa el robo y elige otra celda (−4800) |
+| Decisión adversarial 3 vs 3 | `python main.py config/caso_adversarial_3v3.json --profundidad 2` | Una decisión con las 6 unidades; la unidad elegida se verifica LEGAL (valor 0: carrera empatada con B, A3 y B3 a 2 pasos del recurso) |
 | Minimax vs alfa-beta | `--algoritmo MINIMAX` y `--algoritmo ALFA_BETA` (d=3) | Misma acción y valor; alfa-beta poda y evalúa menos nodos |
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
+| Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando); A gana en 11 turnos, cada acción verificada |
+| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 B gana en 68 turnos; con d=3 la partida empata a 100 (empates de valor: todas las jugadas cercanas a la victoria valen −10000 y desempata el orden de generación) |
 | Nombres propios de terreno | `python main.py config/mapa_agnostico.json --algoritmo UCS` | El sistema funciona con "arena"/"lava"/"roca" (costos del JSON) |
 
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 275 pruebas + 172 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 290 pruebas + 172 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -138,12 +153,14 @@ reproducibles en `config/caso_*.json`.
 ## 9. Escenarios incluidos (`config/`)
 
 - `mapa_ejemplo.json`: escenario de la pág. 6 del enunciado (4x4).
-- `mapa_partida.json`: partida rápida (6x6).
+- `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
+- `mapa_3v3.json`: partida 3 vs 3 (5x5; las 6 unidades activas, d=2).
 - `mapa_grande.json`: partida de gran escala (20x20, 3 unidades por bando).
 - `caso_bfs_vs_ucs.json`: ruta corta (BFS) vs ruta económica (UCS).
 - `caso_obstaculo.json`: muro que obliga a rodear (BFS/DFS/heurísticas).
 - `caso_beam.json`: señuelo que hace fallar a Beam con k=1.
 - `caso_adversarial.json`: decisión adversarial (casos 7 a 10).
+- `caso_adversarial_3v3.json`: decisión adversarial con 3 unidades por bando (5x5).
 - `mapa_agnostico.json`: terrenos con nombres propios ("arena", "lava", "roca").
 
 ## 10. Problemas comunes

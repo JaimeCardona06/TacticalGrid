@@ -263,15 +263,16 @@ class TestCasoMinimoEstadoCompuesto(unittest.TestCase):
         )
 
         destino = (pos_a[0], pos_a[1] - 1)
-        hijo_sin = next(estado for mov, estado in sin_portador.sucesores(tablero) if mov == destino)
-        hijo_con = next(estado for mov, estado in con_portador.sucesores(tablero) if mov == destino)
+        accion = (0, destino)
+        hijo_sin = next(estado for mov, estado in sin_portador.sucesores(tablero) if mov == accion)
+        hijo_con = next(estado for mov, estado in con_portador.sucesores(tablero) if mov == accion)
 
         self.assertIsNone(hijo_sin.portador, "sin portador, mover no cambia quién lleva el recurso")
         self.assertEqual(
             hijo_sin.recurso_pos, escenario.recurso,
             f"esperado: el recurso libre queda en {escenario.recurso}; obtenido: {hijo_sin.recurso_pos}",
         )
-        self.assertEqual(hijo_con.portador, "A", "con portador, el recurso sigue siendo de A")
+        self.assertEqual(hijo_con.portador, ("A", 0), "con portador, el recurso sigue siendo de A")
         self.assertEqual(
             hijo_con.recurso_pos, destino,
             f"esperado: el recurso viaja con A a {destino}; obtenido: {hijo_con.recurso_pos}",
@@ -316,7 +317,7 @@ class TestCasosMinimosAdversarial(unittest.TestCase):
         accion_profunda, met_profunda = self._seleccionar(self._agente(3))
 
         self.assertEqual(
-            accion_miope, self.recurso,
+            accion_miope, (0, self.recurso),
             f"esperado miope (profundidad 1): agarrar el recurso {self.recurso}; obtenido: {accion_miope}",
         )
         self.assertNotEqual(
@@ -324,8 +325,8 @@ class TestCasosMinimosAdversarial(unittest.TestCase):
             "esperado: la decisión cambia al considerar las respuestas del adversario; obtenido: la misma acción",
         )
         self.assertGreaterEqual(
-            self._distancia(accion_profunda, self.recurso), self._distancia(self.pos_a, self.recurso),
-            f"esperado: no avanza directamente al recurso; obtenido: {accion_profunda} (más cerca que {self.pos_a})",
+            self._distancia(accion_profunda[1], self.recurso), self._distancia(self.pos_a, self.recurso),
+            f"esperado: no avanza directamente al recurso; obtenido: {accion_profunda[1]} (más cerca que {self.pos_a})",
         )
         legal, detalle = self._agente(3).verificar_accion(self.estado, self.tablero, accion_profunda)
         self.assertTrue(legal, f"esperado: acción legal; obtenido: {detalle}")
