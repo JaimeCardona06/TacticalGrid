@@ -40,6 +40,17 @@ El modo lo decide el campo `prueba.modo` del escenario:
 
 Un escenario inválido se rechaza completo (se listan los errores y no se simula nada con él).
 
+## Interfaz gráfica
+
+```bash
+python -m src.ui.gui
+```
+
+Abre una ventana Tkinter (sin dependencias nuevas) para cargar un escenario (desplegable de
+`config/` o "Abrir archivo...") y ejecutar sobre él los tres modos del enunciado —búsqueda,
+adversarial y partida— viendo la cuadrícula, el camino y las métricas de cada ejecución. Detalle
+completo en `docs/manual_de_usuario.md`, sección 11.
+
 ## Selección del algoritmo (en tiempo de ejecución)
 
 El algoritmo lo elige **el usuario**, no el JSON (el JSON solo sugiere el valor por defecto):
@@ -95,7 +106,7 @@ src/scenario/            Carga y validación de escenarios JSON
 src/search/              BFS, DFS, UCS, A*, Beam Search y heurísticas
 src/game/                Problema de navegación y verificador de soluciones
 src/adversarial/         Minimax, poda alfa-beta, utilidad y agente
-src/ui/                  Interfaz gráfica (en desarrollo)
+src/ui/                  Interfaz gráfica Tkinter (busqueda/adversarial/partida)
 config/                  Escenarios JSON de desarrollo y casos mínimos
 tests/                   Suite de pruebas (unittest)
 docs/                    Enunciado del proyecto
