@@ -8,7 +8,8 @@ Preconditions:      se ejecuta con `python main.py [ruta.json] [opciones]`; la
                     --algoritmo, --heuristica, --k, --profundidad y
                     --no-preguntar (ver construir_parser). Sin banderas, en
                     consola interactiva se muestra un menú para que el usuario
-                    elija el algoritmo; el JSON queda como sugerencia.
+                    elija el algoritmo y, para A*/Beam, la heurística y el
+                    ancho del haz k; el JSON queda como sugerencia.
 Postconditions:     imprime el progreso y las métricas en consola; devuelve 0
                     si la ejecución terminó bien y 1 si el escenario es
                     inválido o la configuración de la prueba no se puede
@@ -43,6 +44,7 @@ from src.game.navegacion import ProblemaNavegacion
 from src.game.verificador import verificar_solucion
 from src.models.state import EstadoJuego
 from src.scenario.loader import EscenarioInvalido, cargar_escenario
+from src.search.heuristics import HEURISTICAS
 from src.search.informed import a_estrella, beam_search
 from src.search.uninformed import bfs, dfs, ucs
 
@@ -540,6 +542,80 @@ def _elegir_busqueda_interactiva(prueba, entrada=input):
         print(f"  Opción inválida: escribe un número del 1 al {len(opciones)} o Enter para {sugerido}.")
 
 
+def _elegir_heuristica_interactiva(prueba, entrada=input):
+    """Menú numerado para elegir la heurística de A* o Beam Search.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué heurística se busca cuando eligió un algoritmo
+                        informado y no pasó --heuristica.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        entrada es input() o una función equivalente (pruebas).
+    Postconditions:     imprime el menú y devuelve el nombre canónico de la
+                        heurística ("manhattan", "manhattan_pasos" o
+                        "distancia_bfs"). Enter acepta la sugerencia del JSON
+                        (o "manhattan" si el JSON no trae un nombre válido).
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió el menú y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (opción, Enter y reintento).
+    """
+    sugerida = prueba.get("heuristica", "manhattan")
+    if sugerida not in HEURISTICAS:
+        sugerida = "manhattan"
+    opciones = ("manhattan", "manhattan_pasos", "distancia_bfs")
+    etiquetas = {
+        "manhattan": "manhattan (pasos x costo mínimo)",
+        "manhattan_pasos": "manhattan_pasos (solo pasos)",
+        "distancia_bfs": "distancia_bfs (rodeando muros)",
+    }
+    print("\nHeurísticas disponibles para A*/Beam:")
+    for indice, opcion in enumerate(opciones, start=1):
+        marca = "   <- sugerida por el JSON" if opcion == sugerida else ""
+        print(f"  {indice}) {etiquetas[opcion]}{marca}")
+    while True:
+        try:
+            respuesta = entrada(f"Elige la heurística [1-{len(opciones)}, Enter = {sugerida}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la sugerencia del JSON.")
+            return sugerida
+        if not respuesta:
+            return sugerida
+        if respuesta.isdigit() and 1 <= int(respuesta) <= len(opciones):
+            return opciones[int(respuesta) - 1]
+        print(f"  Opción inválida: escribe un número del 1 al {len(opciones)} o Enter para {sugerida}.")
+
+
+def _elegir_k_interactivo(prueba, entrada=input):
+    """Pregunta el ancho del haz k para Beam Search.
+
+    Purpose:            cumplir la regla de que el usuario (no el JSON) elige
+                        con qué k se ejecuta Beam cuando no pasó --k.
+    Preconditions:      prueba es el bloque 'prueba' del escenario (sugerencia);
+                        entrada es input() o una función equivalente (pruebas).
+    Postconditions:     devuelve un entero >= 1. Enter acepta la sugerencia del
+                        JSON (o 2 si no trae un k válido). Reintenta con
+                        entradas inválidas; EOFError devuelve la sugerencia.
+    Complexity:         O(1) en tiempo y espacio (espera interacción).
+    AI usage:           Yes
+    AI intervention:    la IA escribió la pregunta y esta documentación.
+    Student validation: Validado por el equipo con las pruebas del menú (valor, Enter y reintento).
+    """
+    sugerido = prueba.get("k", 2)
+    if isinstance(sugerido, bool) or not isinstance(sugerido, int) or sugerido < 1:
+        sugerido = 2
+    while True:
+        try:
+            respuesta = entrada(f"Ancho del haz k [Enter = {sugerido}]: ").strip()
+        except EOFError:
+            print("\nAviso: no hay entrada interactiva; se usa la sugerencia del JSON.")
+            return sugerido
+        if not respuesta:
+            return sugerido
+        if respuesta.isdigit() and int(respuesta) >= 1:
+            return int(respuesta)
+        print(f"  k inválido: escribe un entero >= 1 o Enter para {sugerido}.")
+
+
 def _elegir_adversarial_interactiva(prueba, profundidad_sugerida, entrada=input):
     """Menú numerado para elegir el algoritmo adversarial y la profundidad.
 
@@ -672,7 +748,19 @@ def main(argv=None):
         algoritmo = args.algoritmo
         if preguntar:
             algoritmo = _elegir_busqueda_interactiva(escenario.prueba or {})
-        return ejecutar_busqueda(escenario, algoritmo=algoritmo, heuristica=args.heuristica, k=args.k)
+        heuristica, k = args.heuristica, args.k
+        canonico = None
+        if algoritmo is not None:
+            try:
+                canonico = normalizar_algoritmo_busqueda(algoritmo)
+            except ValueError:
+                canonico = None  # el nombre inválido lo reporta ejecutar_busqueda
+        puede_preguntar = not args.no_preguntar and sys.stdin.isatty()
+        if canonico in ("A_ESTRELLA", "BEAM") and heuristica is None and puede_preguntar:
+            heuristica = _elegir_heuristica_interactiva(escenario.prueba or {})
+        if canonico == "BEAM" and k is None and puede_preguntar:
+            k = _elegir_k_interactivo(escenario.prueba or {})
+        return ejecutar_busqueda(escenario, algoritmo=algoritmo, heuristica=heuristica, k=k)
 
     if args.k is not None or args.heuristica is not None:
         print("Aviso: --heuristica y --k solo aplican a búsqueda; se ignoran al jugar.")

@@ -104,6 +104,41 @@ class TestMenuInteractivo(unittest.TestCase):
         elegido = modulo_main._elegir_busqueda_interactiva({}, entrada=_respuestas("9", "1"))
         self.assertEqual(elegido, "BFS", f"esperado BFS tras reintento; obtenido: {elegido}")
 
+    def test_menu_heuristica_por_numero(self):
+        elegida = modulo_main._elegir_heuristica_interactiva(
+            {"heuristica": "manhattan"}, entrada=_respuestas("3"))
+        self.assertEqual(elegida, "distancia_bfs",
+                         f"esperado distancia_bfs (opción 3); obtenido: {elegida}")
+
+    def test_menu_heuristica_enter_usa_la_sugerencia_del_json(self):
+        elegida = modulo_main._elegir_heuristica_interactiva(
+            {"heuristica": "distancia_bfs"}, entrada=_respuestas(""))
+        self.assertEqual(elegida, "distancia_bfs",
+                         f"esperado la sugerencia del JSON; obtenido: {elegida}")
+
+    def test_menu_heuristica_con_json_invalido_usa_manhattan(self):
+        elegida = modulo_main._elegir_heuristica_interactiva(
+            {"heuristica": "heuristica_magica"}, entrada=_respuestas(""))
+        self.assertEqual(elegida, "manhattan",
+                         f"esperado manhattan ante una sugerencia inválida; obtenido: {elegida}")
+
+    def test_menu_heuristica_reintenta_con_opcion_invalida(self):
+        elegida = modulo_main._elegir_heuristica_interactiva({}, entrada=_respuestas("9", "2"))
+        self.assertEqual(elegida, "manhattan_pasos",
+                         f"esperado manhattan_pasos tras reintento; obtenido: {elegida}")
+
+    def test_menu_k_por_numero(self):
+        elegido = modulo_main._elegir_k_interactivo({}, entrada=_respuestas("5"))
+        self.assertEqual(elegido, 5, f"esperado k=5; obtenido: {elegido}")
+
+    def test_menu_k_enter_usa_la_sugerencia_del_json(self):
+        elegido = modulo_main._elegir_k_interactivo({"k": 4}, entrada=_respuestas(""))
+        self.assertEqual(elegido, 4, f"esperado la sugerencia del JSON; obtenido: {elegido}")
+
+    def test_menu_k_reintenta_con_entradas_invalidas(self):
+        elegido = modulo_main._elegir_k_interactivo({"k": 0}, entrada=_respuestas("0", "x", "3"))
+        self.assertEqual(elegido, 3, f"esperado k=3 tras reintentos; obtenido: {elegido}")
+
     def test_menu_adversarial_algoritmo_y_profundidad(self):
         usar_poda, profundidad = modulo_main._elegir_adversarial_interactiva(
             {"usar_poda": True}, 3, entrada=_respuestas("1", "5"))
