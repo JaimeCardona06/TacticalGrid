@@ -261,6 +261,7 @@ class AppTacticalGrid(tk.Tk):
             return
 
         self._celda_resaltada = resultado["accion"]
+        self._abandonar_vista_partida()
         self._refrescar_canvas()
 
         metricas = resultado["metricas"]
@@ -455,6 +456,7 @@ class AppTacticalGrid(tk.Tk):
             return
 
         self._camino_resuelto = resultado.camino
+        self._abandonar_vista_partida()
         self._refrescar_canvas()
 
         lineas = [
@@ -523,6 +525,20 @@ class AppTacticalGrid(tk.Tk):
         self._poblar_pestana_adversarial()
         self._poblar_pestana_partida()
         self._refrescar_canvas()
+
+    def _abandonar_vista_partida(self):
+        """Si hay una partida en curso, la abandona para volver a la vista estática.
+
+        Se llama al resolver una búsqueda o evaluar una jugada adversarial desde
+        otra pestaña: sin esto, _refrescar_canvas seguiría dibujando el estado de
+        la partida (rama self._partida is not None) e ignoraría el camino
+        resuelto o la celda resaltada, que solo se dibujan en la vista estática.
+        """
+        if self._partida is not None:
+            self._partida = None
+            self.tabla_partida.delete(*self.tabla_partida.get_children())
+            self.label_desenlace.configure(text="")
+            self.boton_siguiente_turno.configure(state="disabled")
 
     def _refrescar_canvas(self):
         if self.escenario is None:

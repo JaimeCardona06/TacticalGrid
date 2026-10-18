@@ -1,6 +1,7 @@
 import os
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 from dataclasses import replace as _replace
 
@@ -139,22 +140,17 @@ class TestPartida(unittest.TestCase):
         with self.assertRaises(ErrorControlador):
             jugar_turno(partida)
 
-    def test_empate_por_limite_de_turnos_no_excede_max_turnos(self):
+    def test_empate_por_limite_de_turnos_termina_en_empate_al_alcanzar_el_limite(self):
         import main as modulo_main
-        tablero = Board(
-            filas=1, columnas=3,
-            tipos_terreno={"camino": {"costo": 1, "transitable": True}},
-            terreno=[["camino", "camino", "camino"]], base_a=(0, 0), base_b=(0, 2))
-        escenario = Escenario(
-            tablero=tablero,
-            unidades=(Unidad("A1", "A", "estandar", (0, 0)),
-                      Unidad("B1", "B", "estandar", (0, 2))),
-            turno="A", recurso=(0, 1), portador_recurso=None,
-            profundidad_maxima_minimax=1, prueba=None)
-        partida = iniciar_partida(escenario, profundidad=1)
-        turnos_jugados = 0
-        while not partida.terminada and turnos_jugados <= modulo_main.MAX_TURNOS + 1:
-            jugar_turno(partida)
-            turnos_jugados += 1
-        self.assertTrue(partida.terminada)
-        self.assertLessEqual(turnos_jugados, modulo_main.MAX_TURNOS)
+        escenario = cargar_escenario(ruta_config("mapa_partida.json"))
+        with patch.object(modulo_main, "MAX_TURNOS", 5):
+            partida = iniciar_partida(escenario)
+            for _ in range(5):
+                jugar_turno(partida)
+            self.assertTrue(partida.terminada)
+            self.assertIsNone(partida.ganador,
+                               f"esperado empate (None); obtenido: {partida.ganador}")
+            self.assertEqual(partida.turno_num - 1, 5,
+                              f"esperado: 5 turnos; obtenido: {partida.turno_num - 1}")
+            with self.assertRaises(ErrorControlador):
+                jugar_turno(partida)
