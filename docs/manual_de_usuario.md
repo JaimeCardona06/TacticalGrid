@@ -142,7 +142,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 290 pruebas + 172 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 310 pruebas + 172 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```

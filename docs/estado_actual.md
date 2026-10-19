@@ -151,6 +151,8 @@ de las dos duplique lógica de búsqueda o adversarial:
 
 - `docs/manual_de_usuario.md`: guía de uso por consola y por la interfaz gráfica (modos, banderas,
   menú, pestañas de la GUI, experimentos guiados).
+- `docs/decisiones.md`: registro único de las decisiones del equipo (con su razón) y de los
+  pendientes; `docs/preguntas-profesor.md`: dudas del enunciado que hay que consultar.
 - `docs/documento_tecnico.md`: modelado del problema, algoritmos, resultados de los 10 casos
   mínimos, análisis de complejidad, limitaciones y reporte de uso de IA.
 - `docs/Primer proyecto.pdf`: enunciado original del proyecto.

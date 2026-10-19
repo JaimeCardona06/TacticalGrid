@@ -80,7 +80,7 @@ Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado**
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (290 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (310 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -122,5 +122,9 @@ docs/                    Enunciado, documento técnico y documentación
   resultados de los 10 casos mínimos, análisis de complejidad y reporte de uso de IA.
 - `docs/manual_de_usuario.md`: guía de uso por consola (modos, banderas, menú interactivo y
   experimentos guiados).
-- `docs/decisiones.md`: convenciones compartidas (métricas, desempates y modelo adversarial N vs N).
+- `docs/decisiones.md`: registro único de decisiones y convenciones del equipo (generales, validación,
+  búsqueda y heurísticas, Beam, modelo adversarial N vs N, verificación y pendientes).
+- `docs/preguntas-profesor.md`: las dudas del enunciado que sí hay que consultar, con el valor que se
+  usa mientras tanto, y las que el equipo resolvió por su cuenta.
+- `docs/estado_actual.md`: resumen de qué funciona, cómo ejecutarlo y cómo probarlo.
 - `docs/Primer proyecto.pdf`: enunciado del proyecto.
