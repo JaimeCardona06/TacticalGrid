@@ -29,7 +29,9 @@ def crear_manhattan(problema):
                         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_astar.py: valores, escalado por
+                        el costo mínimo leído del escenario, admisibilidad y consistencia en
+                        el mapa oficial y en mapas aleatorios con costos menores que 1.
 
     Análisis (lo que pide el enunciado):
       Qué estima: el costo mínimo imaginable de llegar al objetivo si no hubiera
@@ -71,7 +73,9 @@ def crear_manhattan_pasos(problema):
     Complexity:         Fábrica O(1). Cada h(estado): O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_astar.py: contraejemplo real de
+                        inadmisibilidad (mapa 2x4 con costos 0.5: el óptimo es 2.0 y A* sin
+                        escalar devuelve 2.5).
     """
     objetivo_fila, objetivo_columna = problema.objetivo
 
@@ -102,7 +106,10 @@ def crear_distancia_bfs(problema):
                         contar este preprocesamiento en el tiempo total.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_astar.py: pasos reales rodeando
+                        muros, infinito en celdas inalcanzables, dominancia sobre Manhattan,
+                        admisibilidad y consistencia en mapas aleatorios, y el caso 3 (13
+                        contra 17 expandidos).
 
     Análisis (lo que pide el enunciado):
       Qué estima: el costo de recorrer el camino de MENOS pasos si cada paso

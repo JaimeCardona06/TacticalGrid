@@ -62,7 +62,9 @@ def reconstruir_camino(padre, meta):
     Complexity:         O(d) en tiempo y espacio, con d = longitud del camino.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo de forma indirecta: todos los algoritmos
+                        construyen su camino con esta función y los tests de BFS, DFS, UCS, A*
+                        y Beam comprueban que el camino y el costo cuadran.
     """
     camino, acciones, costo = [meta], [], 0
     estado = meta

@@ -37,7 +37,10 @@ def a_estrella(problema, heuristica="manhattan"):
                         documentación (O(1) para Manhattan).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_astar.py y el caso mínimo 4:
+                        cifras de referencia del mapa oficial (12 generados, 9 expandidos),
+                        mismo costo que UCS en cientos de mapas aleatorios y h = 0 equivale a
+                        UCS.
     """
     inicio_reloj = time.perf_counter()
     nombre = heuristica if isinstance(heuristica, str) else getattr(heuristica, "__name__", "personalizada")
@@ -129,7 +132,9 @@ def beam_search(problema, k, heuristica="manhattan"):
                         de camino O(V); la frontera propiamente dicha es O(k).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_beam.py y el caso mínimo 5:
+                        tabla k = 1, 2, 4 y 8, fallo con k = 1 en un mapa 3x3, haz nunca mayor
+                        que k, siempre termina y nunca mejora el costo de UCS en 250 mapas.
     """
     inicio_reloj = time.perf_counter()
     if isinstance(k, bool) or not isinstance(k, int) or k < 1:

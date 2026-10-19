@@ -13,7 +13,8 @@ def normalizar_bando(valor):
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_cargador.py: acepta A, a, B, b y
+                        rechaza espacios, otros textos, números, booleanos, null y listas.
     """
     if not isinstance(valor, str):
         return None

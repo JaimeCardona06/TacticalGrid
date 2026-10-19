@@ -34,7 +34,9 @@ def validar_escenario(datos):
                         todas las reglas; por ahora O(1) (solo campos).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: escenario oficial
+                        válido, acumulación de ocho errores a la vez, no modifica el escenario
+                        recibido y 3 000 JSON dañados al azar (semilla fija) sin excepciones.
     """
     errores = _validar_campos_obligatorios(datos)
     if errores:
@@ -74,7 +76,8 @@ def _validar_campos_obligatorios(datos):
     Complexity:         O(c), con c = cantidad de campos obligatorios (fija).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: un caso por cada
+                        campo obligatorio, raíz que no es un objeto y secciones mal formadas.
     """
     if not isinstance(datos, dict):
         return ["El escenario debe ser un objeto JSON en la raíz"]
@@ -120,7 +123,9 @@ def _validar_dimensiones(datos):
                         (se mide la longitud de cada fila, sin recorrer celdas).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: filas y columnas
+                        en cero, negativas, texto, booleano o decimal; matriz con filas o
+                        columnas que no coinciden; y mapas no cuadrados válidos.
     """
     errores = []
     filas = datos["mapa"]["filas"]
@@ -175,7 +180,9 @@ def _validar_terrenos_existen(datos):
                         con terreno desconocido.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: un error por
+                        nombre desconocido y no por celda, singular y plural, nombres
+                        comparados exactamente y celdas que no son texto.
     """
     tipos = datos["tipos_terreno"]
     if not isinstance(tipos, dict):
@@ -229,7 +236,10 @@ def _validar_costos_transitables(datos):
     Complexity:         O(t) en tiempo, con t = tipos de terreno del catálogo.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: costo cero,
+                        negativo, texto, booleano, infinito y NaN en terrenos transitables;
+                        costo decimal positivo válido; y el costo de un terreno no transitable
+                        se ignora.
     """
     tipos = datos["tipos_terreno"]
     if not isinstance(tipos, dict):
@@ -278,7 +288,9 @@ def _validar_posicion(etiqueta, pos, filas, columnas):
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: posiciones fuera
+                        del mapa (incluidas negativas), con tipos inválidos o mal formadas,
+                        para bases, recurso y unidades.
     """
     if not isinstance(pos, dict) or "fila" not in pos or "columna" not in pos:
         return [f"{etiqueta} debe ser un objeto con 'fila' y 'columna'"]
@@ -321,7 +333,9 @@ def _validar_posiciones_en_mapa(datos):
     Complexity:         O(u) en tiempo, con u = cantidad de unidades.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: recurso, bases y
+                        unidades fuera del mapa, unidad sin id o que no es un objeto, y mapa
+                        no cuadrado.
     """
     filas = datos["mapa"]["filas"]
     columnas = datos["mapa"]["columnas"]
@@ -372,7 +386,10 @@ def _tipo_en_celda(datos, pos):
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: una unidad cuyo
+                        terreno no se puede saber se salta y solo da el error de la regla que
+                        corresponde (fuera del mapa, tipos inválidos, terreno desconocido o
+                        catálogo mal formado).
     """
     if not isinstance(pos, dict):
         return None
@@ -407,7 +424,9 @@ def _validar_unidades_en_celdas_transitables(datos):
     Complexity:         O(u) en tiempo, con u = cantidad de unidades.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: unidad sobre un
+                        muro con y sin id, y que nunca duplica el error de otra regla ni lanza
+                        excepciones.
     """
     unidades = datos["unidades"]
     if not isinstance(unidades, list):
@@ -446,7 +465,10 @@ def _validar_ids_unicos(datos):
                         (un diccionario id -> posiciones).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: ids repetidos (uno
+                        y varios), repetición masiva resumida, comparación exacta, ids
+                        ausentes o inválidos y la regresión de un id que no se puede usar en
+                        un conjunto.
     """
     unidades = datos["unidades"]
     if not isinstance(unidades, list):
@@ -494,7 +516,8 @@ def _validar_bando_de_unidades(datos):
     Complexity:         O(u) en tiempo, con u = cantidad de unidades.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: bandos inválidos o
+                        ausentes, minúsculas aceptadas y unidades que no son objetos.
     """
     unidades = datos["unidades"]
     if not isinstance(unidades, list):
@@ -524,7 +547,8 @@ def _validar_turno(datos):
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: turnos inválidos
+                        (texto, vacío, número, null, lista) y minúsculas aceptadas.
     """
     turno = datos["turno"]
     if normalizar_bando(turno) is None:
@@ -550,7 +574,9 @@ def _validar_portador_recurso(datos):
     Complexity:         O(u) en tiempo, con u = cantidad de unidades.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: portador
+                        existente, inexistente, con otra capitalización, de tipo inválido, id
+                        repetido y clave ausente (la reporta solo la regla 0).
     """
     portador = datos["juego"]["portador_recurso"]
     if portador is None:
@@ -588,7 +614,9 @@ def _validar_profundidad_minimax(datos):
     Complexity:         O(1) en tiempo y espacio.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_validator.py: profundidad
+                        ausente o null válida; cero, negativa, texto, decimal o booleano
+                        rechazadas.
     """
     profundidad = datos["juego"].get("profundidad_maxima_minimax")
     if profundidad is None:

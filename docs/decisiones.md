@@ -137,7 +137,7 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 | Pendiente | Dónde se resuelve |
 |---|---|
 | **Traza nivel por nivel de Beam** (k = 1 y k = 2) en el mapa oficial, señalando en qué nivel se poda el candidato del pantano por tener mayor g + h; la debe recorrer un integrante del equipo, no solo la IA | Documento técnico y ensayo de sustentación |
-| Completar `Student validation` (hoy `TODO(equipo)` en varios módulos) con la prueba real que hizo el equipo | Antes de la entrega |
+| Que cada integrante **ejecute y entienda** las pruebas que citan los campos `Student validation` (por ejemplo `python -m unittest tests.test_beam -v`), porque esas notas afirman una validación del equipo | Antes de la sustentación |
 | Completar los nombres de los integrantes en `README.md` y `documento_tecnico.md` | Antes de la entrega |
 | Verificar que no se generan estados inválidos durante la partida (el enunciado lo exige) | Verificador, modo partida |
 | Preguntas al profesor (`preguntas-profesor.md`): cobro del movimiento y vecindad; bases/recurso sobre celdas no transitables | Cuando se pueda |

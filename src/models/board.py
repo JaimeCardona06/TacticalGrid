@@ -31,7 +31,9 @@ class Board:
         Complexity:         O(1) en tiempo y espacio.
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_board.py: celdas dentro, en
+                            los bordes y fuera del mapa (incluidas coordenadas negativas) y
+                            mapa no cuadrado.
         """
         fila, columna = pos
         return 0 <= fila < self.filas and 0 <= columna < self.columnas
@@ -50,7 +52,8 @@ class Board:
         Complexity:         O(1) en tiempo y espacio.
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_board.py: muro, terreno
+                            transitable, celdas fuera del mapa y coordenadas negativas.
         """
         if not self.dentro_del_mapa(pos):
             return False
@@ -73,7 +76,9 @@ class Board:
         Complexity:         O(1) en tiempo y espacio.
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_board.py: costos que salen
+                            del catálogo, ValueError en muros y fuera del mapa, y cambio de un
+                            costo en el JSON (pantano 7 a 15).
         """
         if not self.es_transitable(pos):
             raise ValueError(f"No se puede entrar a la celda {pos}: no es transitable")
@@ -98,7 +103,9 @@ class Board:
                             terreno del catálogo.
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_astar.py: ignora los
+                            terrenos no transitables y toma el mínimo de todo el catálogo,
+                            aunque el mapa no use ese terreno.
         """
         costos = [t["costo"] for t in self.tipos_terreno.values() if t["transitable"]]
         return min(costos) if costos else None
@@ -118,7 +125,9 @@ class Board:
         Complexity:         O(1) en tiempo y espacio (4 direcciones fijas).
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_board.py: orden arriba-
+                            derecha-abajo-izquierda en el mapa oficial, esquinas y bordes,
+                            nunca muros ni celdas fuera, y efecto de cambiar DIRECCIONES.
         """
         fila, columna = pos
         vecinos = []

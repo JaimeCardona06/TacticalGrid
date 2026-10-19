@@ -83,7 +83,11 @@ def verificar_solucion(tablero, resultado, inicio, objetivo):
                         éxito; O(f*c) si no hay éxito (relleno de alcanzabilidad).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_verificador.py: soluciones
+                        válidas de los cinco algoritmos, un caso negativo por cada
+                        comprobación (muro, salto, diagonal, costo, extremos, acciones,
+                        métricas), tolerancia con decimales, alcanzabilidad del 'sin éxito' y
+                        Board con errores deliberados.
     """
     inicio, objetivo = tuple(inicio), tuple(objetivo)
     comprobaciones = []

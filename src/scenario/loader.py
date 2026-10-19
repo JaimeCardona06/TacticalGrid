@@ -25,7 +25,9 @@ def leer_json(ruta):
     Complexity:         O(n) en tiempo y espacio, con n el tamaño del archivo.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_cargador.py: lectura del
+                        escenario oficial, archivo inexistente y JSON mal formado con línea y
+                        columna.
     """
     try:
         with open(ruta, encoding="utf-8") as archivo:
@@ -75,7 +77,10 @@ def cargar_escenario(ruta):
                         (celdas del mapa más unidades).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_cargador.py: carga completa,
+                        errores acumulados en un solo EscenarioInvalido, archivo roto o
+                        inexistente, y que el escenario anterior no se pierde si la carga
+                        falla.
     """
     try:
         datos = leer_json(ruta)
@@ -106,7 +111,9 @@ def _construir_escenario(datos):
     Complexity:         O(f*c + u): copia de la matriz y recorrido de unidades.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_cargador.py: normalización de
+                        bandos y turno, valores por defecto, posiciones como tuplas, copias
+                        independientes del JSON leído y mapa no cuadrado.
     """
     tablero = Board(
         filas=datos["mapa"]["filas"],

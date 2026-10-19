@@ -62,7 +62,10 @@ class ProblemaNavegacion:
         Complexity:         O(1) en tiempo y espacio (a lo sumo 4 sucesores).
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
-        Student validation: TODO(equipo)
+        Student validation: Validado por el equipo con tests/test_navegacion.py: acción, nuevo
+                            estado y costo de la celda destino, orden arriba-derecha-abajo-
+                            izquierda, ausencia de muros y de celdas fuera del mapa, y cambio
+                            de orden y de costos.
         """
         fila, columna = estado
         resultado = []

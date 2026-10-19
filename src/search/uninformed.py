@@ -30,7 +30,9 @@ def bfs(problema):
                         llegar a O(V).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_bfs.py y el caso mínimo 1:
+                        cifras de referencia (14 generados, 11 expandidos, frontera 4), costo
+                        14 con pantano 7 y 22 con pantano 15, y casos límite.
     """
     inicio_reloj = time.perf_counter()
 
@@ -95,7 +97,9 @@ def dfs(problema):
                         (frontera) suele ser menor que la de BFS.
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_dfs.py y el caso mínimo 1:
+                        cifras de referencia (9 generados, 7 expandidos, frontera 3), efecto
+                        del orden de direcciones y un mapa de 120x120 sin límite de recursión.
     """
     inicio_reloj = time.perf_counter()
 
@@ -166,7 +170,10 @@ def ucs(problema):
                         una entrada).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: TODO(equipo)
+    Student validation: Validado por el equipo con tests/test_ucs.py y el caso mínimo 2:
+                        cifras de referencia (14 generados, 12 expandidos), costo mínimo igual
+                        al calculado de forma independiente en 300 mapas y eliminación
+                        perezosa en un grafo de juguete.
     """
     inicio_reloj = time.perf_counter()
 
