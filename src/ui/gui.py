@@ -242,6 +242,31 @@ class AppTacticalGrid(tk.Tk):
         self.texto_adversarial.configure(state="disabled")
 
     def _evaluar_adversarial(self):
+        """Evalúa una jugada del bando del turno con Minimax/alfa-beta y la muestra.
+
+        Purpose:            cumplir el modo 'adversarial' de la pestaña
+                            Adversarial: leer la profundidad y la poda elegidas,
+                            pedir la decisión al controlador (estado inicial,
+                            todas las unidades) y mostrar la unidad y celda
+                            elegidas, la legalidad y las métricas del enunciado.
+        Preconditions:      self.escenario es None o un Escenario válido cargado;
+                            los controles de profundidad (entero >= 1) y poda
+                            (booleano) existen en la pestaña.
+        Postconditions:     resalta la celda destino en el canvas y escribe el
+                            informe en el panel de la pestaña (o un mensaje de
+                            error si el escenario falta, la profundidad es
+                            inválida o el controlador lanza ErrorControlador).
+                            No mueve unidades ni modifica el escenario.
+        Complexity:         O(b^d) por la decisión (b = unidades del bando en
+                            turno × hasta 4 direcciones) más O(f*c + u) por el
+                            redibujo del tablero.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo evaluando jugadas desde la
+                            pestaña Adversarial con los escenarios de config/
+                            (acciones LEGAL/ILEGAL visibles), más la
+                            orquestación cubierta por tests/test_controlador.py.
+        """
         if self.escenario is None:
             self._mostrar_resultado_adversarial("Carga un escenario primero.")
             return
@@ -342,6 +367,26 @@ class AppTacticalGrid(tk.Tk):
         return "\n".join(lineas)
 
     def _reiniciar_partida(self):
+        """Inicia (o reinicia) una partida en el turno 1 con los parámetros elegidos.
+
+        Purpose:            crear la PartidaEnCurso del controlador con la
+                            profundidad y la poda de la pestaña, limpiar la
+                            tabla y dejar lista la partida para "Siguiente
+                            turno".
+        Preconditions:      self.escenario es None o un Escenario válido cargado;
+                            profundidad es un entero >= 1 y poda un booleano.
+        Postconditions:     si el controlador acepta, reemplaza self._partida,
+                            limpia tabla y desenlace, habilita "Siguiente
+                            turno" y redibuja el estado inicial; si no, muestra
+                            el error. No modifica el escenario.
+        Complexity:         O(u) por la preparación (u = unidades) más
+                            O(f*c + u) del redibujo.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo reiniciando partidas desde la
+                            pestaña Partida y por tests/test_controlador.py
+                            (iniciar_partida).
+        """
         if self.escenario is None:
             self.label_desenlace.configure(text="Carga un escenario primero.")
             return
@@ -366,6 +411,28 @@ class AppTacticalGrid(tk.Tk):
         self._refrescar_canvas()
 
     def _siguiente_turno(self):
+        """Juega un turno de la partida en curso y actualiza la interfaz.
+
+        Purpose:            avanzar la partida un turno con
+                            controlador.jugar_turno, agregar la fila del turno a
+                            la tabla y, al terminar, deshabilitar el botón y
+                            mostrar el desenlace con el resumen acumulado por
+                            bando.
+        Preconditions:      self._partida es una PartidaEnCurso iniciada y no
+                            terminada (el botón solo se habilita en ese caso).
+        Postconditions:     muta la partida en curso un turno, redibuja el
+                            tablero (posiciones y portador actuales) y agrega la
+                            fila a la tabla; si la partida termina, muestra
+                            FINALIZADA/EMPATADA y el resumen. Ante
+                            ErrorControlador, solo muestra el mensaje.
+        Complexity:         O(b^d) por la decisión del agente más O(f*c + u) del
+                            redibujo; O(1) en la tabla.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo jugando partidas completas
+                            turno a turno desde la pestaña Partida y por
+                            tests/test_controlador.py (jugar_turno).
+        """
         if self._partida is None:
             return
         try:
@@ -429,6 +496,29 @@ class AppTacticalGrid(tk.Tk):
         self.texto_busqueda.configure(state="disabled")
 
     def _resolver_busqueda(self):
+        """Resuelve la búsqueda pedida en la pestaña Búsqueda y muestra el informe.
+
+        Purpose:            ejecutar el algoritmo, la heurística y el k elegidos
+                            sobre la unidad y el objetivo de la pestaña, pintar
+                            el camino encontrado y mostrar el resultado con la
+                            verificación independiente de la solución.
+        Preconditions:      self.escenario es None o un Escenario válido; los
+                            controles de unidad, objetivo (fila/columna
+                            numéricas), algoritmo, heurística y k existen.
+        Postconditions:     guarda el camino, abandona la vista de partida,
+                            redibuja el tablero con el camino y escribe en el
+                            panel de resultados el resumen y las comprobaciones
+                            del verificador; ante entradas inválidas o
+                            ErrorControlador, solo escribe el mensaje. No
+                            modifica el escenario.
+        Complexity:         la del algoritmo elegido más O(n) de verificación y
+                            O(f*c + u) del redibujo.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo resolviendo búsquedas desde
+                            la pestaña Búsqueda (informe VÁLIDA/INVÁLIDA visible)
+                            y por tests/test_controlador.py en la orquestación.
+        """
         if self.escenario is None:
             self._mostrar_resultado_busqueda("Carga un escenario primero.")
             return
@@ -505,6 +595,27 @@ class AppTacticalGrid(tk.Tk):
         self.texto_mensajes.configure(state="disabled")
 
     def _cargar_escenario(self, ruta):
+        """Carga un escenario JSON con la regla todo-o-nada y refresca la ventana.
+
+        Purpose:            validar y reemplazar el escenario activo desde una
+                            ruta (desplegable o "Abrir archivo"), reiniciar el
+                            estado de la GUI y repoblar las tres pestañas y el
+                            canvas.
+        Preconditions:      ruta es una ruta de archivo (texto); puede no existir
+                            o no ser un JSON válido.
+        Postconditions:     si el validador acepta, self.escenario se reemplaza,
+                            se descartan partida/camino/celda resaltada y se
+                            repueblan pestañas y canvas; si no, se muestran los
+                            errores y se conserva el escenario anterior. No
+                            modifica archivos.
+        Complexity:         O(n) por la carga y validación del escenario (n =
+                            tamaño) más O(f*c + u) del redibujo.
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo cargando escenarios válidos e
+                            inválidos (todo-o-nada) desde la GUI y por
+                            tests/test_cargador.py en la carga.
+        """
         try:
             escenario = cargar_escenario(ruta)
         except EscenarioInvalido as error:
@@ -540,6 +651,26 @@ class AppTacticalGrid(tk.Tk):
             self.boton_siguiente_turno.configure(state="disabled")
 
     def _refrescar_canvas(self):
+        """Redibuja el canvas según la vista activa (estática o partida en curso).
+
+        Purpose:            unificar el dibujo del tablero: en vista estática
+                            pinta el escenario con el camino resuelto y la celda
+                            resaltada; en partida, las posiciones actuales de
+                            todas las unidades y el portador del recurso.
+        Preconditions:      self.escenario es un Escenario válido cargado;
+                            self._partida es None (vista estática) o una
+                            PartidaEnCurso.
+        Postconditions:     delega en CanvasEscenario.dibujar con los datos de la
+                            vista activa; no modifica el escenario ni la
+                            partida.
+        Complexity:         O(f*c + u) por el dibujo (celdas y unidades).
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo recorriendo las tres pestañas
+                            (estático con camino/jugada y partida con portador)
+                            y por tests/test_controlador.py en el mapeo de
+                            unidades y portador.
+        """
         if self.escenario is None:
             return
         if self._partida is None:
