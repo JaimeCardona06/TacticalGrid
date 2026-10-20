@@ -6,8 +6,8 @@ Proyecto de Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, 
 
 ## Integrantes
 
-- MARIANA LOPEZ FLOREZ
-- MAURICIO GONZALES CARMONA
+- Mariana Lopez Florez
+- Mauricio Gonzales Carmona
 - Jaime Andrés Cardona Díaz
 
 ## Requisitos
@@ -30,6 +30,9 @@ python main.py config/caso_adversarial.json     # decisión adversarial (Minimax
 python main.py config/caso_adversarial_3v3.json # decisión adversarial 3 vs 3 (5x5, las 6 unidades)
 python main.py config/mapa_3v3.json             # partida 3 vs 3 (5x5, las 6 unidades activas)
 python main.py config/mapa_grande.json          # partida 20x20 (escenario de gran escala)
+python main.py config/mapa_grande_simetrico.json # partida 20x20 sin ventaja inicial (empata por equilibrio)
+python main.py config/mapa_grande_busqueda.json  # búsqueda 20x20 con obstáculos (A1 → base B)
+python main.py config/caso_robo_visual.json     # ver el robo del recurso (A1 roba en el turno 5)
 ```
 
 El modo lo decide el campo `prueba.modo` del escenario:
@@ -50,7 +53,9 @@ python -m src.ui.gui
 
 Abre una ventana Tkinter (sin dependencias nuevas) para cargar un escenario (desplegable de
 `config/` o "Abrir archivo...") y ejecutar sobre él los tres modos del enunciado —búsqueda,
-adversarial y partida— viendo la cuadrícula, el camino y las métricas de cada ejecución. Detalle
+adversarial y partida— viendo la cuadrícula, el camino y las métricas de cada ejecución. En la
+pestaña Búsqueda el tablero marca el inicio (unidad elegida) con "I" cian y el objetivo con "O"
+naranja; el botón "Limpiar" borra el camino y el panel de resultados sin mover las marcas. Detalle
 completo en `docs/manual_de_usuario.md`, sección 11.
 
 ## Selección del algoritmo (en tiempo de ejecución)
@@ -80,7 +85,7 @@ Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado**
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (310 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (421 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -93,7 +98,12 @@ sus escenarios reproducibles en `config/caso_*.json`.
 - `mapa_ejemplo.json`: escenario de la pág. 6 del enunciado (4x4).
 - `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
 - `mapa_3v3.json`: partida 3 vs 3 (5x5, todas las unidades activas).
-- `mapa_grande.json`: escenario de gran escala (20x20, 3 unidades por bando).
+- `mapa_grande.json`: escenario de gran escala (20x20, 3 unidades por bando); B parte 2 pasos más cerca del recurso y gana.
+- `mapa_grande_simetrico.json`: el mismo con el recurso a igual distancia de ambos bandos (empate por equilibrio).
+- `mapa_grande_busqueda.json`: el tablero 20x20 anterior configurado como búsqueda (A1 → base B, con muros y costos variables) para ejecutar BFS/DFS/UCS/A*/Beam sobre un mapa grande.
+- `caso_robo_visual.json`: para **ver** el desempate y el robo (7x7): cambia `prueba.estrategia_robo` entre `ninguna`, `persecucion` e `intercepcion`; la consola y la tabla de la GUI marcan `ROBO`, `RECOGE` y `GANA`.
+- `caso_intercepcion.json`: robo por intercepción (B lleva el recurso; A roba en el turno 55 y gana).
+- `experimentos/comparar_desempates.py`: experimento reproducible que compara los desempates en partidas completas.
 - `caso_bfs_vs_ucs.json`: ruta corta vs. ruta económica por costos de terreno.
 - `caso_obstaculo.json`: muro que obliga a rodear (casos de heurísticas).
 - `caso_beam.json`: cambio de comportamiento según k.

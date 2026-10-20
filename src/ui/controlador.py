@@ -5,6 +5,7 @@ lo ya existente y traduce errores a ErrorControlador (mensaje listo para
 mostrar en la interfaz). Por no depender de tkinter, este módulo es testeable
 con unittest igual que el resto del proyecto.
 """
+import math
 from dataclasses import dataclass, replace
 
 import main
@@ -71,6 +72,55 @@ def portador_unidad_id(estado, unidades_a, unidades_b):
     if 0 <= indice < len(unidades):
         return unidades[indice].id
     return None
+
+
+# Radio de una ficha sola en su celda, como fracción del lado de la celda.
+RADIO_FICHA_SOLA = 0.35
+# Parte de cada ranura que ocupa una ficha cuando comparten celda (deja un pequeño margen).
+OCUPACION_DE_RANURA = 0.45
+
+
+def disposicion_de_fichas(unidades):
+    """Dónde y de qué tamaño dibujar cada ficha dentro de su celda, sin que ninguna tape a otra.
+
+    Purpose:            las reglas permiten que varias fichas compartan celda (el robo
+                        consiste en entrar a la celda del portador) y el canvas pintaba
+                        todas en el mismo punto, así que la última tapaba a las demás,
+                        incluido el portador. Esta función reparte las fichas de una
+                        misma celda en ranuras separadas.
+    Preconditions:      unidades es un iterable de objetos con id (único) y posicion
+                        (fila, columna).
+    Postconditions:     devuelve {id: (cx, cy, radio)} con el centro y el radio de cada
+                        ficha como FRACCIONES del lado de la celda (0 a 1). Una ficha
+                        sola queda centrada con radio RADIO_FICHA_SOLA (igual que
+                        antes). Si k >= 2 fichas comparten celda se reparten en una
+                        cuadrícula de ceil(sqrt(k)) columnas, en el orden recibido, con
+                        círculos que no se solapan y caben dentro de la celda. No
+                        modifica las unidades ni depende de tkinter.
+    Complexity:         O(u) en tiempo y espacio, u = cantidad de unidades.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con tests/test_disposicion_fichas.py:
+                        ficha sola centrada, 2 a 9 fichas sin solaparse ni salirse de la
+                        celda y celdas distintas independientes.
+    """
+    por_celda = {}
+    for unidad in unidades:
+        por_celda.setdefault(tuple(unidad.posicion), []).append(unidad)
+
+    disposicion = {}
+    for grupo in por_celda.values():
+        k = len(grupo)
+        if k == 1:
+            disposicion[grupo[0].id] = (0.5, 0.5, RADIO_FICHA_SOLA)
+            continue
+        columnas = math.ceil(math.sqrt(k))
+        filas = math.ceil(k / columnas)
+        ancho, alto = 1 / columnas, 1 / filas
+        radio = OCUPACION_DE_RANURA * min(ancho, alto)
+        for i, unidad in enumerate(grupo):
+            disposicion[unidad.id] = (((i % columnas) + 0.5) * ancho, ((i // columnas) + 0.5) * alto, radio)
+    return disposicion
 
 
 def recurso_pos_inicial(escenario):
@@ -255,7 +305,8 @@ def iniciar_partida(escenario, profundidad=None, usar_poda=None):
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = preparar_estado_inicial(
         escenario, profundidad, usar_poda)
-    agentes = main._crear_agentes(profundidad, usar_poda, orden)
+    agentes = main._crear_agentes(profundidad, usar_poda, orden,
+                                  main._estrategia_de_robo(escenario.prueba or {}))
     totales = {
         bando: {"turnos": 0, "generados": 0, "evaluados": 0, "podas": 0, "tiempo_ms": 0.0}
         for bando in ("A", "B")
@@ -346,6 +397,10 @@ def jugar_turno(partida):
         "legal": metricas["accion_legal"],
         "detalle_legalidad": metricas["detalle_legalidad"],
         "tiempo_ms": metricas["tiempo_ms"],
+        "acciones_empatadas": metricas.get("acciones_empatadas"),
+        "evento": main.describir_evento(
+            partida.estado, nuevo_estado, partida.unidades_a, partida.unidades_b,
+            nuevo_estado.es_terminal(partida.base_a, partida.base_b)),
     }
 
     if partida.turno_num >= main.MAX_TURNOS:

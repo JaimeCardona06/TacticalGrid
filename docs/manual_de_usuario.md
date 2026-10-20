@@ -28,6 +28,7 @@ python main.py config/caso_obstaculo.json             # búsqueda con muro + ver
 python main.py config/caso_beam.json                  # Beam Search (k configurable)
 python main.py config/caso_adversarial.json           # decisión adversarial (una jugada)
 python main.py config/mapa_grande.json                # partida 20x20
+python main.py config/mapa_grande_busqueda.json       # búsqueda 20x20 con obstáculos (A1 → base B)
 python main.py config/mapa_agnostico.json             # escenario con terrenos "arena"/"lava"/"roca"
 ```
 
@@ -128,6 +129,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 |---|---|---|
 | BFS vs DFS | `python main.py config/caso_obstaculo.json --algoritmo BFS` y luego `--algoritmo DFS` | Mismos 8 pasos, caminos y exploración distintos |
 | Ruta corta vs económica | `python main.py config/caso_bfs_vs_ucs.json --algoritmo BFS` y `--algoritmo UCS` | BFS: 4 pasos/costo 28; UCS: 6 pasos/costo 12 |
+| Búsqueda grande con obstáculos | `python main.py config/mapa_grande_busqueda.json --algoritmo BFS` (y `UCS`, `DFS`, `A*`, `BEAM --k 8`) | BFS: 37 pasos/costo 55; UCS y A*: 39/39; DFS y Beam también llegan y todas las rutas pasan el verificador |
 | Obstáculo y heurística | `python main.py config/caso_obstaculo.json --algoritmo A* --heuristica manhattan` y `--heuristica distancia_bfs` | Mismo costo 8; `distancia_bfs` expande menos |
 | Memoria limitada (k) | `python main.py config/caso_beam.json --algoritmo BEAM --k 1` … `--k 8` | Con k=1 falla (aunque hay ruta); con k≥2 encuentra el costo 10 |
 | Decisión adversarial | `python main.py config/caso_adversarial.json --profundidad 1` y `--profundidad 3` | Con d=1 agarra el recurso (+4600); con d=3 anticipa el robo y elige otra celda (−4800) |
@@ -135,14 +137,19 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Minimax vs alfa-beta | `--algoritmo MINIMAX` y `--algoritmo ALFA_BETA` (d=3) | Misma acción y valor; alfa-beta poda y evalúa menos nodos |
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
-| Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando); A gana en 11 turnos, cada acción verificada |
-| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 B gana en 68 turnos; con d=3 la partida empata a 100 (empates de valor: todas las jugadas cercanas a la victoria valen −10000 y desempata el orden de generación) |
+| Profundidad baja en mapa con muros | `python main.py config/mapa_partida.json --profundidad 1` (y `--profundidad 2`) | **Empate por oscilación** a 100 turnos: A1 alterna (0,3)↔(0,4) y B1 (5,3)↔(5,4) sin recoger. La utilidad Manhattan ignora el muro de la fila 1 y el horizonte corto no ve el rodeo por (0,5). Con `--profundidad 3` (la sugerida por el JSON) B recoge en el turno 12 y gana en 22. Es una limitación conocida; usa d=3 para la demo |
+| Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando), cada acción verificada. Termina en **empate por equilibrio** (100 turnos): el recurso está en el centro exacto, ambos bandos llegan a la vez y recogerlo primero lo expone al robo, así que nadie lo recoge |
+| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 y con d=3 B gana en 68 turnos: su portador entra a la base en cuanto puede (ganar antes vale más). B gana porque B3 parte 2 pasos más cerca del recurso; mientras tanto A3 persigue al portador (desempate por avance) |
+| **Ver el desempate y el robo** | `python main.py config/caso_robo_visual.json` (o ábrelo en la GUI, pestaña Partida) y repite cambiando en el JSON `"estrategia_robo"` | `"ninguna"`: A1 deambula arriba, no hay robo y gana B en 14 turnos. `"persecucion"` (por defecto): en el turno 5 `>>> ROBO: A1 le quita el recurso a B1` (fíjate en los turnos 2 a 6: el portador entra a la celda de A1, y tras el robo B1 comparte celda con A1 y no puede quitárselo en el sitio; ver `docs/decisiones.md`) y gana A en 19. `"intercepcion"`: el robo llega en el turno 9 y gana A en 27 |
+| Robo por intercepción | `python main.py config/caso_intercepcion.json` | El JSON declara `"estrategia_robo": "intercepcion"`: B lleva el recurso hacia su base y A1 le roba en el turno 55; A gana en 57 turnos. Quita ese campo (o pon `"persecucion"`) y B gana en 28 turnos sin robo |
+| Comparar desempates | `python experimentos/comparar_desempates.py --profundidad 3 --escenarios 100` | Partidas completas sobre escenarios aleatorios: persecución tiene menos empates (19 % con 250 escenarios) que sin desempate (43 %) y que intercepción (31 %) |
+| Ventaja inicial y equilibrio | `python main.py config/mapa_grande_simetrico.json` | Misma partida con el recurso a igual distancia de ambos bandos: empate a 100 turnos (nadie recoge). Con el recurso en (9,9) gana A en 67 turnos |
 | Nombres propios de terreno | `python main.py config/mapa_agnostico.json --algoritmo UCS` | El sistema funciona con "arena"/"lava"/"roca" (costos del JSON) |
 
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 310 pruebas + 172 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 421 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -155,7 +162,11 @@ reproducibles en `config/caso_*.json`.
 - `mapa_ejemplo.json`: escenario de la pág. 6 del enunciado (4x4).
 - `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
 - `mapa_3v3.json`: partida 3 vs 3 (5x5; las 6 unidades activas, d=2).
-- `mapa_grande.json`: partida de gran escala (20x20, 3 unidades por bando).
+- `mapa_grande.json`: partida de gran escala (20x20, 3 unidades por bando); el recurso en (10,10) da a B una ventaja de 2 pasos y gana.
+- `caso_robo_visual.json`: B ya lleva el recurso y A tiene dos fichas (7x7); pensado para **ver** el desempate y el robo cambiando `prueba.estrategia_robo` entre `"ninguna"`, `"persecucion"` e `"intercepcion"`.
+- `caso_intercepcion.json`: B lleva el recurso hacia su base y A debe interceptarlo (10x10, partida 2 contra 1); declara `prueba.estrategia_robo = "intercepcion"`.
+- `mapa_grande_simetrico.json`: igual que `mapa_grande.json` con el recurso en (9,10), a igual distancia de ambos bandos (empata por equilibrio).
+- `mapa_grande_busqueda.json`: tablero 20x20 con obstáculos configurado como búsqueda; A1 (0,1) → base B (19,19) para ejecutar los cinco algoritmos.
 - `caso_bfs_vs_ucs.json`: ruta corta (BFS) vs ruta económica (UCS).
 - `caso_obstaculo.json`: muro que obliga a rodear (BFS/DFS/heurísticas).
 - `caso_beam.json`: señuelo que hace fallar a Beam con k=1.
@@ -172,6 +183,7 @@ reproducibles en `config/caso_*.json`.
 | "No hay acciones legales…" | La unidad está encerrada (muros). Revisa el mapa. |
 | Beam no encuentra solución | Con k pequeño puede descartar el camino bueno; aumenta `--k`. |
 | Acentos raros en consola | Usa una terminal UTF-8 (Windows Terminal o PowerShell moderno); el programa ya reconfigura la salida a UTF-8. |
+| Corrí `mapa_partida.json` con `--profundidad 1` o `2` y empató a 100 turnos | Es esperado: la utilidad usa Manhattan, que ignora muros, y con horizonte corto los agentes oscilan sin recoger el recurso. Usa `--profundidad 3` (la del JSON): B gana en 22 turnos. Documentado como limitación 8 en `documento_tecnico.md` |
 | Quiero probar mi propio mapa | Copia un JSON de `config/`, edítalo (dimensión, terrenos, costos, unidades, objetivo) y pásalo como primer argumento. Se valida todo o nada. |
 
 ## 11. Interfaz gráfica
@@ -196,15 +208,23 @@ consola).
 
 El tablero se dibuja a la izquierda: terreno por costo (verde = más barato, marrón = más caro, sin
 mirar el nombre del terreno), obstáculos en gris oscuro, bases con borde de color por bando,
-unidades como círculos con su id y color de bando, el recurso como un punto amarillo, y el turno
-actual en la esquina.
+unidades como círculos con su id y color de bando, el recurso y el turno actual en la esquina. En
+la pestaña **Búsqueda**, el inicio (la unidad elegida) se marca con borde cian y la letra "I", y el
+objetivo (fila/columna) con borde naranja y la letra "O"; las bases siguen con borde azul (A) y rojo
+(B). El recurso se ve **siempre**: libre, es un punto amarillo en su celda; si lo lleva una ficha, es una
+marca amarilla pegada a la ficha del portador (que además tiene el contorno grueso), de modo que
+se ve en qué celda y en manos de quién está. Las reglas permiten que varias unidades compartan celda (así se roba el
+recurso: entrando a la celda del portador); cuando eso ocurre, las fichas se dibujan **una al lado
+de la otra dentro de la celda** (más pequeñas) y nunca una encima de otra, y el portador del
+recurso se distingue por su contorno grueso. Una ficha sola se ve igual que siempre.
 
 ### 11.3 Las tres pestañas
 
 - **Búsqueda:** elige la unidad, el objetivo (fila y columna), el algoritmo (BFS/DFS/UCS/A*/Beam)
   y, si aplica, la heurística y `k`. "Resolver" dibuja el camino encontrado sobre el tablero y
   muestra las métricas (éxito, costo, estados generados/expandidos, máximo de frontera, tiempo) y
-  el informe de verificación independiente, igual que en consola.
+  el informe de verificación independiente, igual que en consola. "Limpiar" borra el camino y el
+  panel de resultados, pero mantiene las marcas de inicio/objetivo.
 - **Adversarial:** elige profundidad y si se usa poda alfa-beta. "Evaluar jugada" decide, entre
   TODAS las unidades del bando del turno (modelo N vs N), cuál se mueve y a dónde, y resalta esa
   celda destino en el tablero **sin mover la unidad**; el panel muestra qué unidad fue elegida, su
@@ -213,5 +233,14 @@ actual en la esquina.
   el estado inicial del escenario (con todas las unidades de cada bando, 1 vs 1 o 3 vs 3 según el
   escenario). Cada clic en "Siguiente turno" juega un turno: mueve la unidad elegida por el agente
   en el tablero y agrega una fila a la tabla (turno, bando, **unidad**, destino, valor, nodos,
-  podas, profundidad, legalidad, tiempo). Al terminar la partida (victoria o empate por límite de
-  turnos) el botón se deshabilita y aparece el desenlace con el resumen acumulado por bando.
+  podas, profundidad, legalidad, tiempo, **empatadas** y **evento**). Al terminar la partida
+  (victoria o empate por límite de turnos) el botón se deshabilita y aparece el desenlace con el
+  resumen acumulado por bando.
+
+  *Cómo ver el robo y el desempate.* La columna **Evento** marca lo importante de cada turno y
+  pinta la fila: verde `RECOGE el recurso (X)`, amarillo `ROBO: X le quita el recurso a Y` y azul
+  `GANA: X deja el recurso en su base`. La columna **Empatadas** dice entre cuántas acciones de
+  igual valor Minimax tuvo que elegir el agente (el desempate por avance actúa cuando es mayor que
+  1; queda vacía si el desempate está apagado). La consola imprime lo mismo: una línea
+  `>>> ROBO: ...` bajo el turno y el sufijo `| Emp. N`. El portador se reconoce en el tablero por su
+  contorno grueso; verás cómo cambia de bando cuando hay un robo.

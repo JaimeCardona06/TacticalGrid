@@ -16,6 +16,15 @@ from src.ui import colores, controlador
 
 CONFIG_DIR = "config"
 TAM_CELDA_MAX = 32
+UMBRAL_RADIO_LETRA_NORMAL = 0.3   # desde este radio (fracción de la celda) el id cabe con letra normal
+
+
+def _etiqueta_de_evento(evento):
+    """Etiqueta de color de la tabla de partida según el evento del turno ("" = sin color)."""
+    for prefijo, etiqueta in (("ROBO", "robo"), ("RECOGE", "recoge"), ("GANA", "gana")):
+        if evento.startswith(prefijo):
+            return (etiqueta,)
+    return ()
 
 
 class CanvasEscenario(tk.Canvas):
@@ -32,7 +41,7 @@ class CanvasEscenario(tk.Canvas):
         self._alto = alto
 
     def dibujar(self, tablero, unidades, turno, recurso_pos, portador_id=None,
-                camino=None, celda_resaltada=None):
+                camino=None, celda_resaltada=None, inicio=None, objetivo=None):
         """Redibuja todo el tablero desde cero.
 
         Purpose:            mostrar, en una sola llamada, el estado completo
@@ -47,9 +56,19 @@ class CanvasEscenario(tk.Canvas):
                             "B"; recurso_pos es (fila, columna); portador_id es
                             un id de unidad o None; camino es una secuencia de
                             posiciones (fila, columna) o None; celda_resaltada
-                            es (fila, columna) o None.
+                            es (fila, columna) o None; inicio y objetivo son
+                            (fila, columna) o None.
         Postconditions:     borra el contenido previo del canvas y dibuja el
-                            estado dado. No modifica tablero ni unidades.
+                            estado dado. Si varias unidades comparten celda se
+                            dibujan una al lado de la otra (controlador.
+                            disposicion_de_fichas) y el portador se pinta al
+                            final, para que ninguna tape a otra. El recurso se
+                            dibuja al final y siempre visible: libre, un punto
+                            amarillo en su celda; transportado, una marca amarilla
+                            pegada a la ficha del portador. Si inicio/objetivo
+                            son celdas válidas, las marca con borde cian/naranja
+                            y las etiquetas "I"/"O" (tags marca_inicio y
+                            marca_objetivo). No modifica tablero ni unidades.
         Complexity:         O(f*c + u) en tiempo, f*c = celdas del tablero, u =
                             número de unidades.
         AI usage:           Yes
@@ -57,9 +76,11 @@ class CanvasEscenario(tk.Canvas):
         Student validation: Validado por el equipo probando la GUI contra los
                             escenarios de config/, incluido mapa_agnostico.json
                             (terrenos de nombre propio) y mapa_grande.json
-                            (20x20).
+                            (20x20), y por tests/test_marcas_busqueda.py en las
+                            marcas de inicio/objetivo.
         """
         self.delete("all")
+        unidades = list(unidades)
         tam = max(1, min(TAM_CELDA_MAX, self._ancho // tablero.columnas,
                           self._alto // tablero.filas))
 
@@ -70,6 +91,15 @@ class CanvasEscenario(tk.Canvas):
         def esquina(pos):
             fila, columna = pos
             return columna * tam, fila * tam
+
+        def dentro(pos):
+            if not (isinstance(pos, (tuple, list)) and len(pos) == 2):
+                return None
+            fila, columna = pos
+            if (isinstance(fila, int) and isinstance(columna, int)
+                    and 0 <= fila < tablero.filas and 0 <= columna < tablero.columnas):
+                return (fila, columna)
+            return None
 
         for fila in range(tablero.filas):
             for columna in range(tablero.columnas):
@@ -90,36 +120,74 @@ class CanvasEscenario(tk.Canvas):
                 x0, y0 = esquina(pos)
                 puntos.extend((x0 + tam / 2, y0 + tam / 2))
             if len(puntos) >= 4:
-                self.create_line(*puntos, fill=colores.COLOR_CAMINO, width=max(2, tam // 6))
+                self.create_line(*puntos, fill=colores.COLOR_CAMINO,
+                                 width=max(2, tam // 6), tags=("camino",))
 
         if celda_resaltada is not None:
             x0, y0 = esquina(celda_resaltada)
             self.create_rectangle(x0 + 2, y0 + 2, x0 + tam - 2, y0 + tam - 2,
-                                   outline=colores.COLOR_RESALTADO, width=3)
+                                   outline=colores.COLOR_RESALTADO, width=3,
+                                   tags=("celda_resaltada",))
 
-        rx0, ry0 = esquina(recurso_pos)
-        cx, cy = rx0 + tam / 2, ry0 + tam / 2
-        r = max(2, tam / 6)
-        self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=colores.COLOR_RECURSO, outline="")
+        for pos, color, letra, tag, anclaje in (
+                (inicio, colores.COLOR_INICIO, "I", "marca_inicio", "nw"),
+                (objetivo, colores.COLOR_OBJETIVO, "O", "marca_objetivo", "se")):
+            valida = dentro(pos)
+            if valida is None:
+                continue
+            x0, y0 = esquina(valida)
+            self.create_rectangle(x0 + 2, y0 + 2, x0 + tam - 2, y0 + tam - 2,
+                                   outline=color, width=3, dash=(4, 2), tags=(tag,))
+            tx = x0 + 4 if anclaje == "nw" else x0 + tam - 4
+            ty = y0 + 2 if anclaje == "nw" else y0 + tam - 2
+            self.create_text(tx, ty, text=letra, anchor=anclaje, fill=color,
+                             font=("TkDefaultFont", 8, "bold"), tags=(tag,))
 
-        for unidad in unidades:
+        disposicion = controlador.disposicion_de_fichas(unidades)
+        for unidad in sorted(unidades, key=lambda u: u.id == portador_id):   # el portador se pinta al final
             ux0, uy0 = esquina(unidad.posicion)
-            cx, cy = ux0 + tam / 2, uy0 + tam / 2
-            r = tam * 0.35
+            fx, fy, fr = disposicion[unidad.id]
+            cx, cy = ux0 + fx * tam, uy0 + fy * tam
+            r = fr * tam
             ancho_contorno = 3 if unidad.id == portador_id else 1
             self.create_oval(cx - r, cy - r, cx + r, cy + r,
                               fill=colores.COLOR_BANDO.get(unidad.bando, "#999999"),
                               outline="black", width=ancho_contorno)
-            self.create_text(cx, cy, text=unidad.id, fill="white", font=("TkDefaultFont", 8))
+            if r >= 6:   # si la ficha quedó muy chica, el color del bando basta
+                self.create_text(cx, cy, text=unidad.id, fill="white",
+                                 font=("TkDefaultFont", 8 if fr >= UMBRAL_RADIO_LETRA_NORMAL else 6))
+
+        # El recurso se pinta DESPUÉS de las fichas para que nunca quede tapado: libre, como un
+        # punto amarillo en el centro de su celda; transportado, como una marca amarilla pegada
+        # a la ficha del portador (el portador, además, tiene contorno grueso).
+        portador = next((u for u in unidades if u.id == portador_id), None) if portador_id is not None else None
+        if portador is not None:
+            px0, py0 = esquina(portador.posicion)
+            fx, fy, fr = disposicion[portador.id]
+            rm = max(3, tam * 0.12)
+            mx = min(px0 + (fx + fr * 0.75) * tam, px0 + tam - rm)
+            my = max(py0 + (fy - fr * 0.75) * tam, py0 + rm)
+            self.create_oval(mx - rm, my - rm, mx + rm, my + rm,
+                              fill=colores.COLOR_RECURSO, outline="black", width=1)
+        else:
+            rx0, ry0 = esquina(recurso_pos)
+            rcx, rcy = rx0 + tam / 2, ry0 + tam / 2
+            rr = max(2, tam / 6)
+            self.create_oval(rcx - rr, rcy - rr, rcx + rr, rcy + rr,
+                              fill=colores.COLOR_RECURSO, outline="black", width=1)
 
         self.create_text(4, 4, anchor="nw", text=f"Turno: {turno}", fill="black")
 
 
-class AppTacticalGrid(tk.Tk):
-    """Ventana principal: carga de escenario, canvas del tablero y las tres pestañas."""
+class AppTacticalGrid(tk.Toplevel):
+    """Ventana principal (Toplevel): carga de escenario, canvas y las tres pestañas.
 
-    def __init__(self):
-        super().__init__()
+    Necesita una raíz Tk existente (main() la crea y la deja oculta); así las
+    pruebas pueden compartir una sola raíz y no crear varias instancias de Tk.
+    """
+
+    def __init__(self, master):
+        super().__init__(master)
         self.title("TacticalGrid")
 
         self.escenario = None
@@ -161,6 +229,7 @@ class AppTacticalGrid(tk.Tk):
         self._construir_pestana_busqueda()
         self._construir_pestana_adversarial()
         self._construir_pestana_partida()
+        self.notebook.bind("<<NotebookTabChanged>>", self._al_cambiar_pestana)
 
     def _construir_pestana_busqueda(self):
         pestana = self.pestana_busqueda
@@ -170,6 +239,7 @@ class AppTacticalGrid(tk.Tk):
         ttk.Label(fila_unidad, text="Unidad:").pack(side="left")
         self.combo_unidad = ttk.Combobox(fila_unidad, state="readonly", width=10)
         self.combo_unidad.pack(side="left", padx=4)
+        self.combo_unidad.bind("<<ComboboxSelected>>", self._al_cambiar_busqueda)
 
         fila_objetivo = ttk.Frame(pestana)
         fila_objetivo.pack(side="top", fill="x", pady=2)
@@ -178,6 +248,10 @@ class AppTacticalGrid(tk.Tk):
         self.spin_fila.pack(side="left", padx=4)
         self.spin_columna = tk.Spinbox(fila_objetivo, from_=0, to=0, width=5)
         self.spin_columna.pack(side="left", padx=4)
+        for spin in (self.spin_fila, self.spin_columna):
+            spin.bind("<KeyRelease>", self._al_cambiar_busqueda)
+            spin.bind("<<Increment>>", self._al_cambiar_busqueda)
+            spin.bind("<<Decrement>>", self._al_cambiar_busqueda)
 
         fila_algoritmo = ttk.Frame(pestana)
         fila_algoritmo.pack(side="top", fill="x", pady=2)
@@ -202,9 +276,17 @@ class AppTacticalGrid(tk.Tk):
         self.spin_k.delete(0, "end")
         self.spin_k.insert(0, "2")
         self.spin_k.pack(side="left", padx=4)
+        self.combo_heuristica.bind("<<ComboboxSelected>>", self._al_cambiar_busqueda)
+        self.spin_k.bind("<KeyRelease>", self._al_cambiar_busqueda)
+        self.spin_k.bind("<<Increment>>", self._al_cambiar_busqueda)
+        self.spin_k.bind("<<Decrement>>", self._al_cambiar_busqueda)
 
-        ttk.Button(pestana, text="Resolver", command=self._resolver_busqueda).pack(
-            side="top", pady=4)
+        fila_botones = ttk.Frame(pestana)
+        fila_botones.pack(side="top", pady=4)
+        ttk.Button(fila_botones, text="Resolver", command=self._resolver_busqueda).pack(
+            side="left", padx=(0, 4))
+        ttk.Button(fila_botones, text="Limpiar", command=self._limpiar_busqueda).pack(
+            side="left")
 
         self.texto_busqueda = tk.Text(pestana, height=16, state="disabled")
         self.texto_busqueda.pack(side="top", fill="both", expand=True)
@@ -286,6 +368,7 @@ class AppTacticalGrid(tk.Tk):
             return
 
         self._celda_resaltada = resultado["destino"]
+        self._camino_resuelto = None
         self._abandonar_vista_partida()
         self._refrescar_canvas()
 
@@ -330,16 +413,21 @@ class AppTacticalGrid(tk.Tk):
         self.boton_siguiente_turno.pack(side="left")
 
         columnas = ("turno", "bando", "unidad", "accion", "valor", "nodos", "podas",
-                    "profundidad", "legal", "tiempo_ms")
+                    "profundidad", "legal", "tiempo_ms", "empatadas", "evento")
         self.tabla_partida = ttk.Treeview(pestana, columns=columnas, show="headings", height=10)
         titulos = {
             "turno": "Turno", "bando": "Bando", "unidad": "Unidad", "accion": "Destino",
             "valor": "Valor", "nodos": "Nodos", "podas": "Podas", "profundidad": "Prof.",
-            "legal": "Legal", "tiempo_ms": "Tiempo (ms)",
+            "legal": "Legal", "tiempo_ms": "Tiempo (ms)", "empatadas": "Empatadas", "evento": "Evento",
         }
         for columna in columnas:
             self.tabla_partida.heading(columna, text=titulos[columna])
             self.tabla_partida.column(columna, width=70, anchor="center")
+        self.tabla_partida.column("evento", width=320, anchor="w")
+        # Filas resaltadas por evento: recoger (verde), robo (amarillo) y victoria (azul).
+        self.tabla_partida.tag_configure("recoge", background="#d9f2d9")
+        self.tabla_partida.tag_configure("robo", background="#ffe08a")
+        self.tabla_partida.tag_configure("gana", background="#cfe3ff")
         self.tabla_partida.pack(side="top", fill="both", expand=True, pady=(4, 4))
 
         self.label_desenlace = ttk.Label(pestana, text="", justify="left")
@@ -447,7 +535,8 @@ class AppTacticalGrid(tk.Tk):
                 fila["turno"], fila["bando"], fila["unidad"], str(fila["accion"]),
                 f"{fila['valor']:+.1f}", fila["nodos_generados"], fila["podas"],
                 fila["profundidad"], "sí" if fila["legal"] else "NO", f"{fila['tiempo_ms']:.2f}",
-            ))
+                fila["acciones_empatadas"] if fila["acciones_empatadas"] else "", fila["evento"],
+            ), tags=_etiqueta_de_evento(fila["evento"]))
 
         self._refrescar_canvas()
 
@@ -468,22 +557,74 @@ class AppTacticalGrid(tk.Tk):
         estado = "readonly" if usa_extras else "disabled"
         self.combo_heuristica.configure(state=estado)
         self.spin_k.configure(state=("normal" if usa_extras else "disabled"))
+        self._al_cambiar_busqueda()
+
+    def _pestana_activa(self):
+        """Índice de la pestaña activa (0 búsqueda, 1 adversarial, 2 partida)."""
+        try:
+            return self.notebook.index("current")
+        except (tk.TclError, AttributeError):
+            return -1
+
+    def _al_cambiar_pestana(self, _evento=None):
+        """Redibuja el tablero para mostrar solo las marcas de la pestaña activa."""
+        self._refrescar_canvas()
+
+    def _marcas_de_busqueda(self):
+        """Devuelve (inicio, objetivo) válidos según los controles de Búsqueda.
+
+        inicio es la posición de la unidad elegida; objetivo es (fila, columna)
+        de los spins. Devuelve None en cada uno si no es representable en el
+        tablero actual, para no dibujar marcas fuera de límites.
+        """
+        if self.escenario is None:
+            return None, None
+        unidad = next((u for u in self.escenario.unidades
+                       if u.id == self.combo_unidad.get()), None)
+        inicio = unidad.posicion if unidad is not None else None
+        try:
+            fila = int(self.spin_fila.get())
+            columna = int(self.spin_columna.get())
+        except (ValueError, tk.TclError):
+            return inicio, None
+        tablero = self.escenario.tablero
+        if 0 <= fila < tablero.filas and 0 <= columna < tablero.columnas:
+            return inicio, (fila, columna)
+        return inicio, None
+
+    def _al_cambiar_busqueda(self, _evento=None):
+        """Invalida el camino anterior y redibuja las marcas al editar la búsqueda."""
+        if self._camino_resuelto is not None:
+            self._camino_resuelto = None
+            self._mostrar_resultado_busqueda("")
+        self._refrescar_canvas()
+
+    def _limpiar_busqueda(self):
+        """Borra el camino dibujado y limpia el panel de resultados de búsqueda."""
+        self._camino_resuelto = None
+        self._mostrar_resultado_busqueda("")
+        self._refrescar_canvas()
 
     def _poblar_pestana_busqueda(self):
         ids = [u.id for u in self.escenario.unidades]
         self.combo_unidad.configure(values=ids)
+        prueba = self.escenario.prueba or {}
         if ids:
-            self.combo_unidad.set(ids[0])
+            inicial = prueba.get("unidad_inicio")
+            self.combo_unidad.set(inicial if inicial in ids else ids[0])
+        else:
+            self.combo_unidad.set("")
 
         tablero = self.escenario.tablero
         self.spin_fila.configure(to=max(0, tablero.filas - 1))
         self.spin_columna.configure(to=max(0, tablero.columnas - 1))
 
-        prueba = self.escenario.prueba or {}
         objetivo = prueba.get("objetivo")
         fila, columna = 0, 0
         if isinstance(objetivo, dict):
             fila, columna = objetivo.get("fila", 0), objetivo.get("columna", 0)
+        elif isinstance(objetivo, (list, tuple)) and len(objetivo) == 2:
+            fila, columna = objetivo
         self.spin_fila.delete(0, "end")
         self.spin_fila.insert(0, str(fila))
         self.spin_columna.delete(0, "end")
@@ -545,6 +686,7 @@ class AppTacticalGrid(tk.Tk):
             return
 
         self._camino_resuelto = resultado.camino
+        self._celda_resaltada = None
         self._abandonar_vista_partida()
         self._refrescar_canvas()
 
@@ -630,7 +772,10 @@ class AppTacticalGrid(tk.Tk):
         self._mostrar_mensaje(
             f"Escenario cargado: {ruta}\n"
             f"{escenario.tablero.filas}x{escenario.tablero.columnas} | "
-            f"{len(escenario.unidades)} unidad(es) | turno {escenario.turno}")
+            f"{len(escenario.unidades)} unidad(es) | turno {escenario.turno}" +
+            ("\nBúsqueda: inicio = unidad elegida (cian, I); "
+             "objetivo = fila/columna (naranja, O); bases = borde azul/rojo."
+             if (escenario.prueba or {}).get("modo") == "busqueda" else ""))
         self._poblar_pestana_busqueda()
         self._poblar_pestana_adversarial()
         self._poblar_pestana_partida()
@@ -654,31 +799,47 @@ class AppTacticalGrid(tk.Tk):
         """Redibuja el canvas según la vista activa (estática o partida en curso).
 
         Purpose:            unificar el dibujo del tablero: en vista estática
-                            pinta el escenario con el camino resuelto y la celda
-                            resaltada; en partida, las posiciones actuales de
-                            todas las unidades y el portador del recurso.
+                            pinta el escenario con el camino resuelto y las
+                            marcas de inicio/objetivo (pestaña Búsqueda) o la
+                            celda resaltada (pestaña Adversarial); en partida,
+                            las posiciones actuales de todas las unidades y el
+                            portador del recurso.
         Preconditions:      self.escenario es un Escenario válido cargado;
                             self._partida es None (vista estática) o una
                             PartidaEnCurso.
         Postconditions:     delega en CanvasEscenario.dibujar con los datos de la
-                            vista activa; no modifica el escenario ni la
+                            vista activa; en Partida y Adversarial nunca pasa
+                            inicio/objetivo (y en Partida tampoco camino ni
+                            celda resaltada). No modifica el escenario ni la
                             partida.
         Complexity:         O(f*c + u) por el dibujo (celdas y unidades).
         AI usage:           Yes
         AI intervention:    la IA escribió el método y esta documentación.
         Student validation: Validado por el equipo recorriendo las tres pestañas
                             (estático con camino/jugada y partida con portador)
-                            y por tests/test_controlador.py en el mapeo de
-                            unidades y portador.
+                            y por tests/test_marcas_busqueda.py, que comprueba
+                            que las marcas solo se ven en Búsqueda y que Limpiar
+                            borra el camino sin quitarlas.
         """
         if self.escenario is None:
             return
         if self._partida is None:
+            pestana = self._pestana_activa()
+            if pestana == 0:        # Búsqueda: marcas I/O, camino y sin celda adversarial
+                inicio, objetivo = self._marcas_de_busqueda()
+                camino = self._camino_resuelto
+                resaltada = None
+            elif pestana == 1:      # Adversarial: solo la celda destino evaluada
+                inicio = objetivo = camino = None
+                resaltada = self._celda_resaltada
+            else:                   # Partida (o pestaña no disponible): solo bases/fichas/recurso
+                inicio = objetivo = camino = resaltada = None
             self.canvas.dibujar(
                 self.escenario.tablero, self.escenario.unidades, self.escenario.turno,
                 controlador.recurso_pos_inicial(self.escenario),
                 portador_id=self.escenario.portador_recurso,
-                camino=self._camino_resuelto, celda_resaltada=self._celda_resaltada)
+                camino=camino, celda_resaltada=resaltada,
+                inicio=inicio, objetivo=objetivo)
         else:
             unidades = controlador.unidades_con_posiciones(
                 self._partida.unidades_a, self._partida.estado.pos_a,
@@ -687,11 +848,16 @@ class AppTacticalGrid(tk.Tk):
                 self.escenario.tablero, unidades, self._partida.estado.turno,
                 self._partida.estado.recurso_pos,
                 portador_id=controlador.portador_unidad_id(
-                    self._partida.estado, self._partida.unidades_a, self._partida.unidades_b))
+                    self._partida.estado, self._partida.unidades_a, self._partida.unidades_b),
+                camino=None, celda_resaltada=None, inicio=None, objetivo=None)
 
 
 def main():
-    AppTacticalGrid().mainloop()
+    raiz = tk.Tk()
+    raiz.withdraw()
+    app = AppTacticalGrid(raiz)
+    app.protocol("WM_DELETE_WINDOW", raiz.destroy)
+    raiz.mainloop()
 
 
 if __name__ == "__main__":

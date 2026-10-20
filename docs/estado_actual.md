@@ -18,7 +18,7 @@ antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual
 | Adversarial: Minimax puro y alfa-beta, utilidad, agente | ✅ Completo |
 | Verificación de legalidad de acciones adversariales | ✅ Completo |
 | CLI (`main.py`): banderas, menú interactivo, modos busqueda/partida/adversarial | ✅ Completo |
-| Suite de pruebas automatizadas | ✅ 310 pruebas + subtests, todas en verde |
+| Suite de pruebas automatizadas | ✅ 421 pruebas + subtests, todas en verde |
 | Interfaz gráfica (`src/ui/gui.py`) | ✅ Completo (Tkinter: busqueda/adversarial/partida) |
 | Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ✅ Completos |
 
@@ -85,13 +85,14 @@ python -m unittest discover -s tests -t . -v
 python -m pytest -q
 ```
 
-Última corrida real (2026-10-19): **310 pruebas, 0 fallos, ~2.7 s**
-(`python -m unittest discover -s tests -t .`, salida `Ran 310 tests ... OK`).
+Última corrida real (2026-10-19): **421 pruebas, 0 fallos, ~10 s**
+(`python -m unittest discover -s tests -t .`, salida `Ran 421 tests ... OK`).
 
 Los 10 casos mínimos exigidos por el enunciado están aislados en `tests/test_casos_minimos.py`,
 cada uno con su escenario reproducible en `config/caso_*.json`, y comparan explícitamente el valor
-esperado contra el obtenido. `tests/test_colores.py` y `tests/test_controlador.py` cubren la capa
-de orquestación de la GUI (sin tkinter, testeable con unittest como el resto del proyecto).
+esperado contra el obtenido. `tests/test_colores.py`, `tests/test_controlador.py` y
+`tests/test_marcas_busqueda.py` cubren la capa de orquestación y las marcas de la GUI (sin tkinter
+salvo las pruebas de canvas, que lo omiten si no hay pantalla).
 
 ### 4.2 Pruebas manuales guiadas (para demostrar comportamiento, no solo "pasa/no pasa")
 
@@ -104,13 +105,15 @@ interfaz gráfica (`python -m src.ui.gui`, sección 11 del manual).
 
 ### 4.3 Qué NO está cubierto todavía
 
-- No hay pruebas automatizadas de los widgets Tkinter de `src/ui/gui.py` (la lógica de
-  orquestación que sí se puede probar sin tkinter vive en `src/ui/controlador.py` y `colores.py`,
-  y sí tiene suite); verificar la interfaz gráfica es manual, lanzándola y recorriendo las tres
-  pestañas.
-- No hay pruebas de carga/rendimiento más allá del escenario de 20x20 (`mapa_grande.json`); los
-  tiempos reportados son orientativos y dependen de la máquina (ver limitaciones en
-  `documento_tecnico.md`, sección 10).
+- Las pruebas de los widgets Tkinter son parciales: `tests/test_marcas_busqueda.py` cubre las
+  marcas de inicio/objetivo, el botón Limpiar y el cambio de pestaña; el recorrido visual completo
+  de la GUI (layout, tablas, etc.) sigue siendo manual, lanzándola y recorriendo las tres pestañas.
+- No hay pruebas de carga/rendimiento más allá de los escenarios 20x20 (`mapa_grande.json` y
+  `mapa_grande_busqueda.json`); los tiempos reportados son orientativos y dependen de la máquina
+  (ver limitaciones en `documento_tecnico.md`, sección 10).
+- No hay prueba automatizada de la oscilación de `mapa_partida.json` con profundidad 1–2 (empate a
+  100 turnos porque la utilidad Manhattan ignora los muros); está documentada como limitación 8 del
+  documento técnico y en el manual. Con la profundidad sugerida 3, B gana en 22 turnos.
 
 ---
 

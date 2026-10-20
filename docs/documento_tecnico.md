@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 310 pruebas automatizadas + 172 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 421 pruebas automatizadas + 199 subtests.
 
 ---
 
@@ -75,11 +75,32 @@ conservan comportamiento y métricas.
 | Movimiento | Una acción por turno: mover la unidad del bando activo a una celda vecina transitable |
 | Recoger | Si la unidad pisa la celda del recurso y nadie lo lleva, pasa a ser suyo |
 | Transporte | Mientras lo lleva, el recurso viaja con la unidad (su posición sigue al portador) |
-| Robo | Si la unidad pisa la celda del rival que transporta el recurso, lo roba |
+| Robo | Si la unidad *entra* a la celda del rival que transporta el recurso, lo roba (ver consecuencias abajo) |
 | Victoria | Gana el bando que deja el recurso en su propia base |
 | Empate | Si nadie gana en `MAX_TURNOS = 100`, la partida empata (regla de cierre determinista) |
 | Sin acciones | Si un bando no tiene acciones legales, la partida se detiene con aviso |
 | Colisiones | No se prohíbe apilar unidades en una celda; el efecto relevante es el robo (ver limitaciones) |
+
+**Consecuencias de la regla de robo.** Como robar es *entrar* a la celda del portador, ocurre que:
+
+1. *Compartir celda con el portador no permite robar.* Tras un robo, el despojado queda en la misma
+   celda que el nuevo portador; como no existe una acción "quedarse" ni "quitar", solo puede
+   salir y volver a entrar, y para entonces el portador ya se movió. Es deliberado: si quien
+   comparte celda pudiera quitarlo en el acto, el recurso cambiaría de manos en cada turno y la
+   partida caería en un bucle sin fin; evitarlo exigiría un indicador de protección dentro del
+   estado.
+2. *El portador puede entrar a la celda de una ficha rival sin perder el recurso*, porque la ficha
+   rival ya está ahí y no "entra".
+3. *No existe "pasar":* un bando con una sola ficha está obligado a moverla y puede quedar en
+   zugzwang.
+4. *Perseguir por detrás a igual velocidad nunca alcanza al portador* (sección 5.3).
+
+Un ejemplo real es `config/caso_robo_visual.json` con la estrategia por defecto: en el turno 2 el
+portador B1 entra a la celda de A1 (efecto 2); en el turno 4, su única ficha debe moverse y queda
+junto a A1 (efecto 3); en el turno 5 A1 entra a su celda y le roba el recurso, y en el turno 6 B1,
+que comparte celda con A1, no puede recuperarlo y se aleja (efecto 1). Las alternativas
+descartadas y sus razones están en `docs/decisiones.md`; los efectos están fijados por
+`tests/test_reglas_de_robo.py`.
 
 ---
 
@@ -180,7 +201,10 @@ completo). La opción se ejecuta en cada prueba de búsqueda y se imprime el inf
 
 Jerarquía implementada en `src/adversarial/utility.py`:
 
-1. **Victoria/derrota:** +10000 si A lleva el recurso a su base; −10000 si lo logra B.
+1. **Victoria/derrota:** +10000 si A lleva el recurso a su base; −10000 si lo logra B. Dentro del
+   árbol, `minimax._valor_de_hoja` suma la profundidad restante a la victoria (±(10000 + p)): ganar
+   antes vale más y perder después duele menos; así el portador a un paso de su base entra en
+   lugar de pasar el turno con otra unidad.
 2. **A transporta:** 5000 − 100 × distancia de A a su base (quiere acercarse).
 3. **B transporta:** −(5000 − 100 × distancia de B a su base) (A quiere que B esté lejos).
 4. **Recurso libre:** (distancia de B al recurso − distancia de A al recurso) × 50 (carrera por la captura).
@@ -198,6 +222,80 @@ Además, `verificar_accion` comprueba con datos crudos del tablero que la acció
 mapa y es transitable—, sin confiar en los sucesores generados por la
 propia búsqueda. El resultado alimenta la columna `Legal sí/NO` de la partida y la línea
 `Verificación de legalidad` del modo adversarial.
+
+**Desempate por avance (solo en las partidas).** Cuando varias acciones tienen *exactamente* el
+mismo valor Minimax, el agente de partida no se queda con la primera del orden de generación (eso
+hacía que, si nada cambiaba el valor, se moviera siempre la primera unidad: fichas que
+"deambulan"): elige la que más acerca a su bando a su objetivo (`src/adversarial/desempate.py`).
+La clave usa **distancias reales rodeando muros** (BFS), no Manhattan, y depende de quién lleva el
+recurso:
+
+| Situación | Clave (menor es mejor) |
+|---|---|
+| Recurso libre | (distancia de la unidad más cercana al recurso, suma de las distancias de todas) |
+| Lo lleva el propio bando | (distancia del portador a su base, suma de las distancias de las demás unidades al portador) |
+| Lo lleva el rival (estrategia `persecucion`, por defecto) | (distancia de la unidad más cercana al portador, suma de las distancias de todas) |
+| Lo lleva el rival (estrategia `intercepcion`, opcional) | (menor **holgura de intercepción** de sus unidades, distancia de la unidad más cercana al portador, suma de las holguras) |
+
+**Cómo roba un bando: dos estrategias, y gana la que mejor juega.** La regla de robo es del
+modelo (una unidad que entra a la celda del portador rival le quita el recurso) y no cambia; lo que
+el desempate decide es *cómo buscar esa oportunidad* cuando el rival lleva el recurso. Hay dos
+estrategias (`ESTRATEGIAS_DE_ROBO`, parámetro `estrategia_robo` del agente y campo opcional
+`prueba.estrategia_robo` del JSON; el valor `"ninguna"` apaga el desempate para poder compararlo):
+
+- **`persecucion` (por defecto):** acercarse al portador (distancia real, rodeando muros).
+- **`intercepcion`:** predecir la ruta más corta del portador a su base (`ruta_hacia_la_base`) y
+  dirigirse a un punto de ella al que se llegue a tiempo. Para cada unidad se mide la **holgura de
+  intercepción**
+
+      holgura = min sobre m ≥ 1 de ( d(unidad, ruta[m]) − m )
+
+  donde `ruta[m]` es la celda del portador tras m movimientos suyos y `d` es la distancia real
+  (BFS). Una holgura ≤ 0 significa que la unidad llega a tiempo a un punto de la ruta (m − 1
+  movimientos para quedar adyacente y 1 para entrar a su celda) y puede robar. Perseguir por detrás
+  da siempre ≥ 1: a igual velocidad el portador se aleja y la perseguidora nunca queda adyacente
+  en su turno.
+
+*Primera evidencia (portador pasivo).* En 3 914 configuraciones aleatorias con un portador que
+sigue su ruta sin reaccionar, interceptar logra el robo en el **71.8 %** y perseguir en el
+**49.7 %**; y en el escenario `config/caso_intercepcion.json` (una ficha detrás y otra por delante
+de la ruta) interceptar gana donde perseguir no puede: **A le roba el recurso a B en el turno 55 y
+gana en 57 turnos; con persecución B gana en 28 turnos sin ningún robo.**
+
+*Segunda evidencia (partidas completas, la que decide).* Contra un portador que también decide con
+Minimax el resultado se invierte. `experimentos/comparar_desempates.py` (250 escenarios
+aleatorios válidos, 4 a 14 de lado, 0 a 30 % de muros, 1 a 3 unidades por bando, semilla 77;
+0 acciones ilegales y 0 excepciones en todos los modos) da:
+
+| Desempate | Empates (d=3) | Robos (d=3) | Empates (d=2) |
+|---|---|---|---|
+| Ninguno (primera acción del orden) | 43 % | 168 | 40 % |
+| **Persecución (por defecto)** | **19 %** | 490 | **34 %** |
+| Intercepción | 31 % | 365 | 57 % |
+
+Una defensora que se coloca *por delante* bloquea al portador (si este avanza queda adyacente y le
+roban; si espera, no progresa) y la partida se estanca, mientras que la que persigue por detrás lo
+deja avanzar y aprovecha sus errores. **Conclusión:** la mejor jugada aislada (interceptar) no es la
+mejor política contra un rival que reacciona; se eligió la persecución por defecto y la intercepción
+queda disponible y probada para escenarios como `caso_intercepcion.json`. Con profundidad 2 los
+agentes no ven que un robo se puede recuperar con una segunda ficha, y se pasan el recurso de uno a
+otro (1 364 robos en 250 partidas); con profundidad 3 son 490. Es genérico: usa solo el tablero, las
+bases y las posiciones del JSON, con distancias reales (muros incluidos), cualquier tamaño y
+cualquier número de unidades.
+
+El desempate **solo decide entre acciones óptimas empatadas**: nunca cambia el valor Minimax, no
+cuenta en las métricas de nodos (las acciones se comparan con alfa-beta en la ventana estrecha
+(valor − 0.5, valor + 0.5)) y, si la clave también empata, gana la primera del orden. La decisión
+adversarial suelta (modo `adversarial`) no lo usa, para que los casos mínimos 7 a 10 comparen
+Minimax y alfa-beta exactamente. Pruebas: `tests/test_desempate.py`.
+
+**Por qué no se debilitó la regla de robo.** Hay empates "por equilibrio" (`mapa_3v3.json`,
+`mapa_grande_simetrico.json`) porque, con ambos bandos adyacentes al recurso, quien lo recoge
+primero es robado. Es el *mismo mecanismo* que hace funcionar el caso mínimo 7 (en
+`caso_adversarial.json`, A1 y B1 están pegados al recurso y "lo mejor según Minimax no es ir
+directo a él"). Cualquier regla que protegiera al primero en recoger (inmunidad de un turno,
+robo solo con superioridad numérica) eliminaría ese caso exigido por el enunciado; el equilibrio es
+el resultado racional de las reglas, no un fallo del agente.
 
 ---
 
@@ -225,7 +323,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 310 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 421 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -331,19 +429,60 @@ evaluada.
 - **Variación de k en Beam:** caso 5; además `k=2` encuentra la solución con solo 34 nodos generados
   frente a 30 de UCS, mientras `k=1` no explora lo suficiente (9 nodos) y falla.
 - **Comparación de heurísticas:** caso 4; `distancia_bfs` es la única que "ve" el muro.
-- **Partidas completas (1 vs 1):** `mapa_partida.json` (6x6) — gana B en 22 turnos (A: 176 nodos
-  generados, 87 evaluados, 25 podas, ~0.5 ms; B: 203 / 109 / 26, ~0.5 ms), **métricas idénticas a
-  las reportadas con el modelo anterior** (la generalización N vs N no alteró los escenarios 1 vs 1).
+- **Búsqueda 20x20 con obstáculos (`config/mapa_grande_busqueda.json`):** A1 (0,1) → base B
+  (19,19) sobre el tablero grande. BFS: 37 pasos/costo 55; DFS: 39/39; UCS: 39/39; A* (las tres
+  heurísticas): 39/39; Beam k=1,2,8: 37/55 y k=4: 39/39. Las diez variantes pasan el verificador
+  independiente (`VÁLIDA`); sirve para ejecutar todos los algoritmos sobre un mapa 20x20.
+- **Partidas completas (1 vs 1):** `mapa_partida.json` (6x6) — gana B en 22 turnos (A: 195 nodos
+  generados, 95 evaluados, 27 podas, ~0.3 ms; B: 224 / 118 / 29, ~0.3 ms). El ganador y los turnos
+  son los del modelo 1 vs 1 original; los nodos cambiaron respecto a versiones anteriores porque
+  ganar antes vale más (sección 5.2) modifica la poda y el desempate por avance (sección 5.3)
+  puede elegir otra acción entre las de igual valor.
+- **Profundidad 1 o 2 en `mapa_partida.json`:** con d=1 o d=2 la misma partida **empata a 100
+  turnos por oscilación**: A1 alterna entre (0,3) y (0,4) y B1 entre (5,3) y (5,4) sin recoger el
+  recurso (verificado). La causa es la utilidad de la carrera: usa distancia Manhattan, que ignora
+  el muro de la fila 1 (columnas 1–4). Desde (0,4), la celda (0,5) parece "más lejos" en Manhattan
+  aunque es la entrada al rodeo real; con d=1/2 el horizonte no ve el desvío y el agente vuelve.
+  El desempate por avance usa distancias reales, pero solo entre acciones de **igual** valor
+  Minimax, así que no corrige una preferencia Manhattan equivocada. No es un fallo de la búsqueda
+  ni del verificador. Con d=3 el horizonte ve el rodeo por (0,5), B recoge en el turno 12 y gana en
+  22; la limitación completa está en la sección 10 (punto 8).
+- **Robo por intercepción (1 contra 2, `config/caso_intercepcion.json`, 10x10 sin obstáculos):** B
+  ya lleva el recurso en (2,2) hacia su base (9,9); A tiene A1 detrás del portador y A2 por delante
+  de su ruta. El JSON declara `"estrategia_robo": "intercepcion"`: **A1 roba en el turno 55 y A gana
+  en 57 turnos**. Con la estrategia por defecto (`persecucion`) B gana en 28 turnos sin que nadie
+  robe. Es el caso donde interceptar gana; en conjunto (sección 5.3) la persecución juega mejor.
+- **Comparación de desempates en partidas completas:** `python experimentos/comparar_desempates.py`
+  (tabla de la sección 5.3): persecución 19 % de empates frente a 43 % sin desempate y 31 % con
+  intercepción (250 escenarios aleatorios, d=3).
 - **Partidas completas (3 vs 3, todas las unidades activas y verificadas):**
-  - `mapa_3v3.json` (5x5, d=2): gana A en 11 turnos (A: 6 decisiones, 650 / 247 / 45; B: 5, 562 /
-    440 / 48; ~0.4 ms por decisión).
+  - `mapa_3v3.json` (5x5, d=2): **empata a 100 turnos** (A: 50 decisiones, 7350 nodos generados /
+    3692 evaluados / 520 podas; B: 50, 7382 / 3068 / 543; ~1.5 ms por decisión). Es un empate por
+    **equilibrio**: el recurso está en el centro exacto y los dos bandos llegan a la vez, cada
+    uno queda adyacente al recurso y recogerlo primero lo expone al robo, así que nadie lo recoge
+    (y como no existe "pasar", una ficha de cada bando se mueve de ida y vuelta). Verificado: con
+    el desempate anterior (primera unidad del orden), B movía B1 hacia su base en el turno 2 en
+    vez de acercar a B3 al recurso, y A lo recogía sin riesgo en el turno 3 y ganaba en 11 turnos.
   - `mapa_grande.json` (20x20) con `--profundidad 2`: gana B en 68 turnos (34 decisiones por bando,
-    ~3.3k nodos generados por bando, ~0.35 ms por decisión).
-  - `mapa_grande.json` (20x20) con la profundidad 3 sugerida por el JSON: **empata a 100 turnos**.
-    Desde que el portador de B quedó a un paso de su base, *todas* las jugadas de B valen −10000 en
-    el horizonte (la victoria entra al árbol por cualquier línea) y el desempate por orden de
-    generación elige mover otra unidad: es el fenómeno clásico de empates de valor con profundidad
-    limitada (sección 10) y un buen contraste del efecto de la profundidad en 3 vs 3.
+    ~3.5k nodos generados por bando, ~2 a 5 ms por decisión).
+  - `mapa_grande.json` (20x20) con la profundidad 3 sugerida por el JSON: **gana B en 68 turnos**,
+    igual que con profundidad 2 (~7 a 11 ms por decisión, ~28k nodos generados por bando).
+    *Hallazgo y corrección 1:* una versión anterior de la utilidad empataba aquí a 100 turnos,
+    porque desde que el portador de B quedó a un paso de su base *todas* las jugadas de B valían
+    −10000 en el horizonte (la victoria entraba al árbol por cualquier línea) y el desempate por
+    orden de generación elegía mover otra unidad, posponiendo la victoria para siempre. Se corrigió
+    haciendo que ganar antes valga más (sección 5.2); regresión en `tests/test_victoria_rapida.py`.
+    *Hallazgo y corrección 2:* mientras B se llevaba el recurso, A movía siempre su primera
+    unidad (A1 recorría la fila 0) porque todas sus jugadas valían lo mismo; ahora desempata por
+    avance y solo se mueve la unidad más cercana, A3, persiguiendo al portador (sección 5.3).
+  - **Ventaja inicial y equilibrio** (`mapa_grande.json` cambiando solo la celda del recurso;
+    todos los resultados verificados): B3 parte 2 pasos más cerca del recurso que A3 (16 contra
+    18; el recurso en (10,10) no está en el centro, que queda entre las celdas 9 y 10), y por eso
+    gana B. Con el recurso en (9,9), A lleva esa ventaja y **gana A en 67 turnos**. Con el
+    recurso en (9,10) o (10,9) las distancias son iguales (`config/mapa_grande_simetrico.json`) y
+    la partida **empata por equilibrio**. Con estas reglas (robo al pisar la celda del portador,
+    unidades apilables, igual velocidad) una ventaja de 2 pasos decide la partida y la igualdad
+    produce un empate racional; no existe un mapa a la vez perfectamente justo y decisivo.
 
 ### 8.3 Verificación de las soluciones
 
@@ -379,12 +518,15 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
 
 ## 10. Limitaciones
 
-1. **Empates de valor con profundidad limitada:** cuando todas las líneas del horizonte llevan a la
-   misma victoria, cualquier acción conserva el valor (±10000) y el desempate es el orden de
-   generación; el bando puede no forzar la victoria inmediata (observado en `mapa_grande` 3 vs 3 a
-   d=3, que empata a 100 turnos con el portador de B a un paso; con d=2 el juego cierra en 68 turnos).
-   Es el mismo mecanismo que hace del orden de acciones un experimento (caso 9), visto aquí como
-   limitación de la profundidad limitada.
+1. **Empates de valor con profundidad limitada:** cuando ninguna jugada cambia el valor dentro del
+   horizonte, la elección entre jugadas empatadas no la decide Minimax. La victoria ya no se
+   pospone (ganar antes vale más, sección 5.2) y en las partidas las acciones empatadas se
+   desempatan por avance (sección 5.3), de modo que un bando que ya no puede evitar la derrota
+   se acerca al portador en lugar de deambular. Perseguir por detrás no alcanza a un portador
+   de igual velocidad (como las fichas de A en `mapa_grande.json`) y, aun con el desempate, el
+   19 % a 34 % de las partidas aleatorias terminan en empate (bloqueos y recuperaciones
+   repetidas del recurso); si la clave también empata decide el orden de generación. Es el mismo mecanismo que hace del orden de
+   acciones un experimento (caso 9); un término de persecución en la utilidad lo mitigaría (ver 2).
 2. **La utilidad no penaliza la proximidad entre unidades**: las acciones de intercepción emergen
    del robo, no de un término explícito de distancia entre rivales. Cambiar los pesos es directo
    (sección 5.2) y es un experimento recomendado para la sustentación.
@@ -394,6 +536,22 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
 5. **Tiempos absolutos** dependen de la máquina; las comparaciones del informe usan nodos, podas y
    profundidad efectiva, no milisegundos.
 6. **Empate por límite de turnos** (100) es una regla de cierre del equipo, no del enunciado.
+7. **Escenarios equilibrados terminan en empate:** con robo al pisar la celda del portador, unidades
+   apilables e igual velocidad, el primero en recoger el recurso con un rival adyacente lo pierde, así
+   que si ambos bandos llegan a la vez nadie lo recoge (`mapa_3v3.json`,
+   `mapa_grande_simetrico.json`). Es el comportamiento racional de las reglas, no un fallo del agente;
+   para una partida decisiva un bando necesita partir al menos 2 pasos más cerca (sección 8.2).
+8. **Oscilación con profundidad 1–2 en mapas con muros (`mapa_partida.json`):** la utilidad
+   adversarial mide la carrera por el recurso con distancia Manhattan, que **ignora los muros**.
+   En `mapa_partida.json` (muro en la fila 1, columnas 1–4) A1 alterna entre (0,3) y (0,4) y B1
+   entre (5,3) y (5,4) sin recoger el recurso; la partida empata a los 100 turnos. Con d=1/2 el
+   horizonte no alcanza a ver el rodeo real por (0,5), y el desempate por avance no lo corrige
+   porque solo decide entre acciones de igual valor Minimax (aquí los valores no empatan). Con
+   d=3 el horizonte ve el rodeo, B recoge en el turno 12 y gana en 22. **Respuesta para la
+   sustentación:** es una limitación conocida de la evaluación Manhattan con horizonte corto, no
+   de la búsqueda; se usa la profundidad sugerida por el JSON (3). Una utilidad con distancias
+   reales (BFS) evitaría esa preferencia geométrica, a costa de O(f·c) por hoja si se recalcula en
+   cada una.
 
 ---
 
@@ -415,10 +573,52 @@ como apoyo en todas las fases del proyecto.
   y en la redacción de pruebas automatizadas (casos mínimos y de compatibilidad).
 - Generación de borradores de escenarios de prueba (caso_beam, caso_adversarial, mapa_agnóstico),
   verificados empíricamente por el equipo antes de congelarlos.
+- **Preferencia por ganar antes (Claude Code, Anthropic):** a partir de una observación del equipo
+  (en `mapa_grande.json` una ficha de A parecía detenerse junto a un muro y la partida nunca
+  terminaba), la IA reprodujo la partida, descartó la pared como causa y encontró que la
+  victoria se posponía por empates de valor; propuso y escribió `minimax._valor_de_hoja`
+  (±(10000 + profundidad restante)), la documentación de ese método y
+  `tests/test_victoria_rapida.py`. Antes de aceptarlo se comprobó en una copia del proyecto que
+  las pruebas existentes seguían en verde y que las pruebas nuevas **fallan** sin el cambio.
+- **Desempate por avance (Claude Code, Anthropic):** a partir de la misma observación, la IA
+  midió que las fichas de A "deambulaban" porque todas sus jugadas valían −3200 y se elegía la
+  primera del orden, descartó la pared como causa (A3 tenía el camino libre), y diseñó y escribió
+  `src/adversarial/desempate.py`, el método `MinimaxAgent._desempatar` y
+  `tests/test_desempate.py`; también creó `config/mapa_grande_simetrico.json`. Después, ante la petición del equipo de una mejor forma de robar, midió que perseguir por detrás logra el robo en
+  el 49.7 % de 3 914 configuraciones aleatorias con un portador pasivo, implementó la intercepción
+  (`ruta_hacia_la_base`, `holgura_de_intercepcion`), creó `config/caso_intercepcion.json` y el
+  experimento reproducible `experimentos/comparar_desempates.py`; al medir partidas completas
+  comprobó que la intercepción juega *peor* (31 % de empates contra 19 % de la persecución) y
+  recomendó dejar la persecución por defecto y la intercepción como estrategia opcional. Se comprobó en una
+  copia que las pruebas que describen el comportamiento **fallan** sin el desempate, y se
+  verificó con partidas completas que el desempate cambió el resultado de `mapa_3v3.json`
+  (de victoria de A a empate por equilibrio) por una causa concreta y explicada (sección 8.2).
+- **Fichas apiladas en la GUI (Claude Code, Anthropic):** ante el comentario de dos integrantes
+  ("a veces hay que mover la ficha que estorba al llegar a la base"), la IA verificó con 1 440
+  estados que las reglas nunca bloquean el paso (el portador siempre entra a su base), midió que
+  el canvas pintaba las fichas de una misma celda en el mismo punto (la última tapaba a las
+  demás, incluido el portador) y escribió `controlador.disposicion_de_fichas`, el cambio en
+  `CanvasEscenario.dibujar` y `tests/test_disposicion_fichas.py`. Se comprobó que las pruebas del
+  dibujo fallan con el código anterior y se jugaron cuatro escenarios completos en la GUI real
+  sin ninguna ficha tapada. Después, al revisar `caso_robo_visual.json`, se vio que el recurso se
+  pintaba *debajo* de la ficha que lo lleva y no se distinguía dónde estaba; ahora se pinta
+  encima (marca amarilla pegada al portador).
+- **Consecuencias de la regla de robo (Claude Code, Anthropic):** al replicar con el equipo los
+  turnos 2 a 6 de `caso_robo_visual.json` (el despojado comparte celda con el nuevo portador y no
+  puede recuperar el recurso en el sitio), la IA explicó la secuencia exacta, planteó las
+  alternativas y sus costos, y, tras la decisión del equipo de mantener la regla, la documentó
+  (`docs/decisiones.md`, sección 2.4) y escribió `tests/test_reglas_de_robo.py` para que lo
+  documentado no pueda desviarse del código.
+- **Eventos de partida y escenario de demostración (Claude Code, Anthropic):** ante la petición
+  del equipo de poder *ver* el desempate y el robo, la IA buscó entre 600 escenarios aleatorios
+  pequeños uno donde las tres variantes se distinguen (`config/caso_robo_visual.json`), escribió
+  `main.describir_evento`, el modo `"ninguna"`, la columna de eventos de la consola y la tabla de
+  la GUI, y `tests/test_eventos_de_partida.py`. Los resultados citados (14, 19 y 27 turnos) salen
+  de partidas reales de esas pruebas.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **310 pruebas y 172 subtests en verde**
+- Ejecución y verificación de la suite completa: **421 pruebas y 199 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

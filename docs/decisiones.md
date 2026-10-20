@@ -21,6 +21,7 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 | Inicio igual al objetivo | Camino `[inicio]`, 0 movimientos, costo 0 | Caso límite natural: la meta se comprueba al sacar de la frontera. |
 | Camino devuelto | Incluye la celda de inicio; el costo no la cuenta | Facilita la verificación del camino. |
 | Formato de un sucesor | `(accion, nuevo_estado, costo)`; la acción es la dirección ("arriba", "derecha", "abajo", "izquierda") | El destino ya es el nuevo estado; la dirección dice al verificador qué movimiento se hizo. |
+| Fichas que comparten celda en la GUI | Se dibujan en ranuras separadas dentro de la celda (`controlador.disposicion_de_fichas`, función pura sin tkinter); el portador se pinta al final con contorno grueso; el recurso se pinta siempre encima (libre: punto amarillo en su celda; transportado: marca amarilla pegada al portador); una ficha sola no cambia | Las reglas permiten apilar fichas y el canvas las pintaba en el mismo punto, así que la última tapaba a las demás (en 100 partidas aleatorias, una ficha tapaba al portador en el 13.5 % de los turnos). Es solo visual: no cambia ninguna regla ni resultado. |
 | Interfaz | Tkinter (`python -m src.ui.gui`) | Viene con Python; su `Canvas` basta para dibujar tablero y camino. La lógica vive en `src/ui/controlador.py`, sin tkinter, para poder probarla. |
 
 ## 2. Carga y validación del escenario
@@ -112,12 +113,105 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 - **Reglas deterministas:** recoger al pisar la celda del recurso libre; mientras lo lleva, el
   recurso viaja con el portador; robar al pisar la celda del portador rival; victoria al dejar el
   recurso en la base propia; empate con `MAX_TURNOS = 100`; se permite apilar unidades.
-- **Utilidad (perspectiva de MAX = A):** +10000 victoria / −10000 derrota; con portador,
+- **Consecuencias de la regla de robo (decididas y aceptadas):** robar es *entrar* a la celda del
+  portador rival desde una celda vecina. De eso se derivan cuatro efectos que conviene conocer
+  (comprobados en `tests/test_reglas_de_robo.py` y visibles en `config/caso_robo_visual.json`,
+  turnos 2 a 6):
+  1. **Compartir celda con el portador no permite robar.** Tras un robo, el despojado queda en la
+     misma celda que el nuevo portador y no puede quitárselo en el sitio: no existe una acción
+     "quedarse" ni "quitar". Para recuperarlo debe salir y volver a entrar, y para entonces el
+     portador casi siempre ya se movió. **Por qué se acepta:** si quien comparte celda pudiera
+     quitarlo al instante, el recurso cambiaría de manos en *cada* turno (los dos bandos se lo
+     quitarían por turnos) y la partida caería en un bucle sin fin; evitarlo exigiría un indicador
+     de protección en el estado. Con la regla actual el estado se mantiene simple y las partidas
+     avanzan.
+  2. **El portador puede entrar a la celda de una ficha rival sin perder el recurso** (la ficha
+     rival ya está ahí, no "entra"). Es un efecto de lo anterior; el rival no puede robarle desde
+     esa celda y debe salir y volver.
+  3. **No existe "pasar":** toda acción mueve una unidad a una celda vecina. Un bando con una sola
+     ficha está obligado a moverla y puede quedar en zugzwang (en `caso_robo_visual`, el turno 4
+     de B: desde la celda que comparte con A1, cualquier movimiento la deja junto a A1).
+  4. **El robo exige estar en una celda vecina al empezar el turno:** por eso perseguir por detrás a
+     igual velocidad nunca alcanza al portador (ver "Estrategia de robo").
+
+  *Alternativas evaluadas y descartadas:* (A) prohibir al portador entrar a la celda de una ficha
+  rival (cerraría el "abrazo", pero introduce bloqueos que hay que resolver y el equipo ya decidió
+  permitir apilar); (B) una acción "quitar" para quien comparte celda (arregla la falta de
+  revancha, pero sin protección de un turno produce el bucle sin fin descrito y con protección
+  exige un indicador nuevo en el estado). Ninguna afecta al caso mínimo 7, que depende de que el
+  primero en recoger con un rival adyacente sea robado.
+- **Utilidad (perspectiva de MAX = A):** +10000 si gana A / −10000 si gana B; con portador,
   ±(5000 − 100 × distancia a su base); recurso libre, 50 × (distancia de la unidad más cercana de
   B − la de A).
+- **Ganar antes vale más:** al evaluar una hoja terminal, `minimax._valor_de_hoja` suma la
+  profundidad restante p a la victoria (±(10000 + p)): quien gana prefiere la victoria más
+  cercana y quien pierde prefiere la derrota más lejana. `evaluar_estado` sigue siendo pura (±10000);
+  la profundidad solo existe en el árbol. **Por qué:** sin esto, todas las jugadas que conservaban
+  una victoria dentro del horizonte valían lo mismo y el desempate por orden de generación podía
+  posponerla para siempre. En `mapa_grande.json` con profundidad 3, el portador de B quedaba a un
+  paso de su base, la jugada ganadora valía −10000 igual que mover cualquier otra unidad (B1 era
+  la primera en el orden) y la partida empataba a 100 turnos. Con el cambio termina (gana B en 68
+  turnos con profundidad 2 y con 3). Pruebas: `tests/test_victoria_rapida.py`.
 - **Desempates:** a igual valor, Minimax conserva la primera acción del orden de generación; por
-  eso el orden afecta la poda (caso mínimo 9) y con profundidad limitada pueden aparecer empates
-  de valor (limitación documentada en el documento técnico).
+  eso el orden afecta la poda (caso mínimo 9). Esto sigue siendo así en la decisión adversarial
+  suelta (modo `adversarial` y su pestaña de la GUI), para que los casos mínimos 7 a 10 comparen
+  Minimax y alfa-beta exactamente.
+- **Desempate por avance (solo en las PARTIDAS):** los agentes de partida
+  (`main._crear_agentes`, que también usa la GUI) entre acciones de **exactamente** el mismo
+  valor eligen la que más acerca al bando a su objetivo (`src/adversarial/desempate.py`), con
+  distancias reales rodeando muros: recurso libre → la unidad más cercana avanza hacia él; lo lleva
+  el propio bando → avanza el portador hacia la base; lo lleva el rival → persigue o intercepta según
+  `estrategia_robo` (ver abajo). **Por qué:** sin esto, si nada cambiaba el valor se movía siempre la primera unidad
+  del orden (en `mapa_grande.json`, A1 recorría la fila 0 mientras B se llevaba el recurso).
+  Solo decide entre acciones óptimas empatadas (nunca cambia el valor Minimax) y no cuenta en las
+  métricas de nodos. Es opt-in: `MinimaxAgent(..., desempatar_por_avance=False)` por defecto.
+  Pruebas: `tests/test_desempate.py`.
+- **Estrategia de robo: persecución por defecto, intercepción opcional (decidido con datos):**
+  cuando el rival lleva el recurso, el desempate puede *perseguir* al portador (acercarse) o
+  *interceptarlo* (ir a un punto de su ruta más corta a la base al que se llegue a tiempo,
+  midiendo la holgura `min sobre m ≥ 1 de (d(unidad, ruta[m]) − m)`; ≤ 0 = llega a tiempo). Contra
+  un portador pasivo, interceptar roba más (71.8 % contra 49.7 % en 3 914 configuraciones) y gana
+  `config/caso_intercepcion.json`; pero en **partidas completas** (`experimentos/comparar_desempates.py`,
+  250 escenarios aleatorios, semilla 77, 0 acciones ilegales) la defensora que se coloca por
+  delante bloquea al portador y la partida se estanca:
+
+  | Desempate | Empates d=3 | Robos d=3 | Empates d=2 |
+  |---|---|---|---|
+  | Ninguno | 43 % | 168 | 40 % |
+  | **Persecución (por defecto)** | **19 %** | 490 | **34 %** |
+  | Intercepción | 31 % | 365 | 57 % |
+
+  Se elige la persecución. La estrategia se cambia con el campo opcional `prueba.estrategia_robo`
+  (`"persecucion"`, `"intercepcion"` o `"ninguna"`, que apaga el desempate y deja la primera
+  acción óptima del orden; un valor inválido avisa y usa la de por defecto) o con
+  `MinimaxAgent(..., estrategia_robo=...)`. `config/caso_robo_visual.json` permite **ver** las tres
+  con un mismo JSON, y la consola y la tabla de la GUI marcan cada evento (`RECOGE`, `ROBO`,
+  `GANA`) y cuántas acciones empatadas tuvo cada decisión. Con profundidad 2 los agentes se pasan el recurso de
+  uno a otro (1 364 robos en 250 partidas) porque no ven la recuperación; con profundidad 3 son 490.
+- **La regla de robo NO se debilita:** entrar a la celda del portador rival le quita el recurso.
+  Esa misma regla produce el empate por equilibrio en mapas simétricos (el primero en recoger con
+  un rival adyacente es robado) y también sostiene el caso mínimo 7 (`caso_adversarial.json`: A1
+  y B1 pegados al recurso; "lo mejor no es ir directo"). Proteger al primero en recoger (inmunidad
+  de un turno, robo solo con superioridad numérica) rompería ese caso exigido por el enunciado.
+- **Ventaja inicial y equilibrio:** con las reglas actuales (robo al pisar la celda del portador,
+  unidades apilables, igual velocidad), recoger el recurso con un rival adyacente lo pierde. Por
+  eso una ventaja de 2 pasos (o más) hasta el recurso decide la partida y la igualdad empata por
+  equilibrio. Verificado cambiando solo la celda del recurso en `mapa_grande.json`:
+
+  | Recurso en | Pasos de A3 / B3 | Resultado |
+  |---|---|---|
+  | (10,10) — `mapa_grande.json` | 18 / 16 | Gana B en 68 turnos |
+  | (9,9) | 16 / 18 | Gana A en 67 turnos |
+  | (9,10) o (10,9) — `mapa_grande_simetrico.json` | 17 / 17 | Empate a 100 turnos (nadie recoge) |
+
+  Decisión: `mapa_grande.json` se conserva con la ventaja de B (partida decisiva, documentada) y
+  `mapa_grande_simetrico.json` ofrece la versión sin ventaja. `mapa_3v3.json`, simétrico, empata
+  por equilibrio. No existe un mapa a la vez perfectamente justo y decisivo.
+- **Limitación aceptada: profundidad 1–2 en `mapa_partida.json`.** La utilidad de la carrera usa
+  Manhattan (ignora muros); con d=1/2 A1 alterna (0,3)↔(0,4) y B1 (5,3)↔(5,4) sin recoger y la
+  partida empata a 100 turnos. Con d=3 el horizonte ve el rodeo por (0,5) y B gana en 22. Se decide
+  documentarla y usar la profundidad sugerida por el JSON (3) en las demos; cambiar la utilidad a
+  distancias reales (BFS) queda como mejora posible, a costa de O(f·c) por hoja.
 
 ## 5. Verificación de soluciones
 
