@@ -1,0 +1,15 @@
+# TacticalGrid - Dependencias del proyecto
+#
+# El proyecto NO usa librerías de terceros. Todos los imports son de la
+# biblioteca estándar de Python:
+#   collections, copy, dataclasses, heapq, itertools, json, math, os,
+#   random, sys, tempfile, time, typing, unittest
+# más los paquetes internos `src` y `tests`.
+#
+# Requisitos:
+#   - Python >= 3.10 (probado con 3.13.7)
+#
+# No hay paquetes que instalar: `pip install -r requirements.txt` no descarga nada.
+#
+# Opcional (solo desarrollo): pytest permite correr la suite con salida corta;
+# las pruebas también corren con unittest, incluido en la biblioteca estándar.
