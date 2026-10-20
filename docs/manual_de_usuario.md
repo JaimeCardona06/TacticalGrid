@@ -145,7 +145,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 375 pruebas + 188 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 386 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -202,7 +202,10 @@ consola).
 El tablero se dibuja a la izquierda: terreno por costo (verde = más barato, marrón = más caro, sin
 mirar el nombre del terreno), obstáculos en gris oscuro, bases con borde de color por bando,
 unidades como círculos con su id y color de bando, el recurso como un punto amarillo, y el turno
-actual en la esquina.
+actual en la esquina. Las reglas permiten que varias unidades compartan celda (así se roba el
+recurso: entrando a la celda del portador); cuando eso ocurre, las fichas se dibujan **una al lado
+de la otra dentro de la celda** (más pequeñas) y nunca una encima de otra, y el portador del
+recurso se distingue por su contorno grueso. Una ficha sola se ve igual que siempre.
 
 ### 11.3 Las tres pestañas
 

@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 375 pruebas automatizadas + 188 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 386 pruebas automatizadas + 199 subtests.
 
 ---
 
@@ -302,7 +302,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 375 pruebas + 188 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 386 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -548,10 +548,18 @@ como apoyo en todas las fases del proyecto.
   copia que las pruebas que describen el comportamiento **fallan** sin el desempate, y se
   verificó con partidas completas que el desempate cambió el resultado de `mapa_3v3.json`
   (de victoria de A a empate por equilibrio) por una causa concreta y explicada (sección 8.2).
+- **Fichas apiladas en la GUI (Claude Code, Anthropic):** ante el comentario de dos integrantes
+  ("a veces hay que mover la ficha que estorba al llegar a la base"), la IA verificó con 1 440
+  estados que las reglas nunca bloquean el paso (el portador siempre entra a su base), midió que
+  el canvas pintaba las fichas de una misma celda en el mismo punto (la última tapaba a las
+  demás, incluido el portador) y escribió `controlador.disposicion_de_fichas`, el cambio en
+  `CanvasEscenario.dibujar` y `tests/test_disposicion_fichas.py`. Se comprobó que las pruebas del
+  dibujo fallan con el código anterior y se jugaron cuatro escenarios completos en la GUI real
+  sin ninguna ficha tapada.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **375 pruebas y 188 subtests en verde**
+- Ejecución y verificación de la suite completa: **386 pruebas y 199 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

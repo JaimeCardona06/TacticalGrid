@@ -16,6 +16,7 @@ from src.ui import colores, controlador
 
 CONFIG_DIR = "config"
 TAM_CELDA_MAX = 32
+UMBRAL_RADIO_LETRA_NORMAL = 0.3   # desde este radio (fracción de la celda) el id cabe con letra normal
 
 
 class CanvasEscenario(tk.Canvas):
@@ -49,7 +50,11 @@ class CanvasEscenario(tk.Canvas):
                             posiciones (fila, columna) o None; celda_resaltada
                             es (fila, columna) o None.
         Postconditions:     borra el contenido previo del canvas y dibuja el
-                            estado dado. No modifica tablero ni unidades.
+                            estado dado. Si varias unidades comparten celda se
+                            dibujan una al lado de la otra (controlador.
+                            disposicion_de_fichas) y el portador se pinta al
+                            final, para que ninguna tape a otra. No modifica
+                            tablero ni unidades.
         Complexity:         O(f*c + u) en tiempo, f*c = celdas del tablero, u =
                             número de unidades.
         AI usage:           Yes
@@ -60,6 +65,7 @@ class CanvasEscenario(tk.Canvas):
                             (20x20).
         """
         self.delete("all")
+        unidades = list(unidades)
         tam = max(1, min(TAM_CELDA_MAX, self._ancho // tablero.columnas,
                           self._alto // tablero.filas))
 
@@ -102,15 +108,19 @@ class CanvasEscenario(tk.Canvas):
         r = max(2, tam / 6)
         self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=colores.COLOR_RECURSO, outline="")
 
-        for unidad in unidades:
+        disposicion = controlador.disposicion_de_fichas(unidades)
+        for unidad in sorted(unidades, key=lambda u: u.id == portador_id):   # el portador se pinta al final
             ux0, uy0 = esquina(unidad.posicion)
-            cx, cy = ux0 + tam / 2, uy0 + tam / 2
-            r = tam * 0.35
+            fx, fy, fr = disposicion[unidad.id]
+            cx, cy = ux0 + fx * tam, uy0 + fy * tam
+            r = fr * tam
             ancho_contorno = 3 if unidad.id == portador_id else 1
             self.create_oval(cx - r, cy - r, cx + r, cy + r,
                               fill=colores.COLOR_BANDO.get(unidad.bando, "#999999"),
                               outline="black", width=ancho_contorno)
-            self.create_text(cx, cy, text=unidad.id, fill="white", font=("TkDefaultFont", 8))
+            if r >= 6:   # si la ficha quedó muy chica, el color del bando basta
+                self.create_text(cx, cy, text=unidad.id, fill="white",
+                                 font=("TkDefaultFont", 8 if fr >= UMBRAL_RADIO_LETRA_NORMAL else 6))
 
         self.create_text(4, 4, anchor="nw", text=f"Turno: {turno}", fill="black")
 

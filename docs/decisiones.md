@@ -21,6 +21,7 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 | Inicio igual al objetivo | Camino `[inicio]`, 0 movimientos, costo 0 | Caso límite natural: la meta se comprueba al sacar de la frontera. |
 | Camino devuelto | Incluye la celda de inicio; el costo no la cuenta | Facilita la verificación del camino. |
 | Formato de un sucesor | `(accion, nuevo_estado, costo)`; la acción es la dirección ("arriba", "derecha", "abajo", "izquierda") | El destino ya es el nuevo estado; la dirección dice al verificador qué movimiento se hizo. |
+| Fichas que comparten celda en la GUI | Se dibujan en ranuras separadas dentro de la celda (`controlador.disposicion_de_fichas`, función pura sin tkinter); el portador se pinta al final con contorno grueso; una ficha sola no cambia | Las reglas permiten apilar fichas y el canvas las pintaba en el mismo punto, así que la última tapaba a las demás (en 100 partidas aleatorias, una ficha tapaba al portador en el 13.5 % de los turnos). Es solo visual: no cambia ninguna regla ni resultado. |
 | Interfaz | Tkinter (`python -m src.ui.gui`) | Viene con Python; su `Canvas` basta para dibujar tablero y camino. La lógica vive en `src/ui/controlador.py`, sin tkinter, para poder probarla. |
 
 ## 2. Carga y validación del escenario
