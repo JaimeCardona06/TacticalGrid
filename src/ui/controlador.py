@@ -255,7 +255,8 @@ def iniciar_partida(escenario, profundidad=None, usar_poda=None):
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = preparar_estado_inicial(
         escenario, profundidad, usar_poda)
-    agentes = main._crear_agentes(profundidad, usar_poda, orden)
+    agentes = main._crear_agentes(profundidad, usar_poda, orden,
+                                  main._estrategia_de_robo(escenario.prueba or {}))
     totales = {
         bando: {"turnos": 0, "generados": 0, "evaluados": 0, "podas": 0, "tiempo_ms": 0.0}
         for bando in ("A", "B")

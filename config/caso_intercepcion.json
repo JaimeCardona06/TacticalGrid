@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "mapa": {
+    "filas": 10,
+    "columnas": 10
+  },
+  "tipos_terreno": {
+    "camino": {"costo": 1, "transitable": true},
+    "muro": {"transitable": false}
+  },
+  "terreno": [
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"],
+    ["camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino", "camino"]
+  ],
+  "bases": {
+    "A": {"fila": 0, "columna": 0},
+    "B": {"fila": 9, "columna": 9}
+  },
+  "recurso": {"fila": 2, "columna": 2},
+  "unidades": [
+    {"id": "A1", "bando": "A", "tipo": "estandar", "fila": 2, "columna": 0},
+    {"id": "A2", "bando": "A", "tipo": "estandar", "fila": 6, "columna": 5},
+    {"id": "B1", "bando": "B", "tipo": "estandar", "fila": 2, "columna": 2}
+  ],
+  "turno": "A",
+  "juego": {
+    "portador_recurso": "B1",
+    "profundidad_maxima_minimax": 3
+  },
+  "prueba": {
+    "modo": "partida",
+    "estrategia_robo": "intercepcion"
+  }
+}

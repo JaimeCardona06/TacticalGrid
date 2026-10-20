@@ -77,7 +77,7 @@ def minimax_puro(estado, profundidad, es_max, tablero, base_a, base_b, stats=Non
     AI usage:           Yes
     AI intervention:    la IA asistió en la estructuración de la recursión y en
                         la refactorización de las métricas (profundidad efectiva).
-    Student validation: Validado por el equipo con la suite completa (323 pruebas),
+    Student validation: Validado por el equipo con la suite completa (375 pruebas),
                         incluidos los casos mínimos 7 y 10 y la comparación de
                         nodos generados y evaluados contra alfa-beta.
     """
@@ -154,7 +154,7 @@ def minimax_alphabeta(
     AI usage:           Yes
     AI intervention:    la IA asistió en la estructuración de la recursión, los
                         cortes alfa-beta y la refactorización de las métricas.
-    Student validation: Validado por el equipo con la suite completa (323 pruebas),
+    Student validation: Validado por el equipo con la suite completa (375 pruebas),
                         incluidos los casos mínimos 7, 8 y 9 (podas y orden de
                         acciones) y la prueba de profundidad efectiva.
     """

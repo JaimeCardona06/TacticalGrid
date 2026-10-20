@@ -125,10 +125,57 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
   la primera en el orden) y la partida empataba a 100 turnos. Con el cambio termina (gana B en 68
   turnos con profundidad 2 y con 3). Pruebas: `tests/test_victoria_rapida.py`.
 - **Desempates:** a igual valor, Minimax conserva la primera acción del orden de generación; por
-  eso el orden afecta la poda (caso mínimo 9). Siguen existiendo empates cuando ninguna jugada
-  cambia el valor dentro del horizonte (por ejemplo, un bando que ya no puede evitar la derrota):
-  ahí el orden de generación decide y las fichas pueden moverse sin un propósito aparente
-  (limitación documentada en el documento técnico).
+  eso el orden afecta la poda (caso mínimo 9). Esto sigue siendo así en la decisión adversarial
+  suelta (modo `adversarial` y su pestaña de la GUI), para que los casos mínimos 7 a 10 comparen
+  Minimax y alfa-beta exactamente.
+- **Desempate por avance (solo en las PARTIDAS):** los agentes de partida
+  (`main._crear_agentes`, que también usa la GUI) entre acciones de **exactamente** el mismo
+  valor eligen la que más acerca al bando a su objetivo (`src/adversarial/desempate.py`), con
+  distancias reales rodeando muros: recurso libre → la unidad más cercana avanza hacia él; lo lleva
+  el propio bando → avanza el portador hacia la base; lo lleva el rival → persigue o intercepta según
+  `estrategia_robo` (ver abajo). **Por qué:** sin esto, si nada cambiaba el valor se movía siempre la primera unidad
+  del orden (en `mapa_grande.json`, A1 recorría la fila 0 mientras B se llevaba el recurso).
+  Solo decide entre acciones óptimas empatadas (nunca cambia el valor Minimax) y no cuenta en las
+  métricas de nodos. Es opt-in: `MinimaxAgent(..., desempatar_por_avance=False)` por defecto.
+  Pruebas: `tests/test_desempate.py`.
+- **Estrategia de robo: persecución por defecto, intercepción opcional (decidido con datos):**
+  cuando el rival lleva el recurso, el desempate puede *perseguir* al portador (acercarse) o
+  *interceptarlo* (ir a un punto de su ruta más corta a la base al que se llegue a tiempo,
+  midiendo la holgura `min sobre m ≥ 1 de (d(unidad, ruta[m]) − m)`; ≤ 0 = llega a tiempo). Contra
+  un portador pasivo, interceptar roba más (71.8 % contra 49.7 % en 3 914 configuraciones) y gana
+  `config/caso_intercepcion.json`; pero en **partidas completas** (`experimentos/comparar_desempates.py`,
+  250 escenarios aleatorios, semilla 77, 0 acciones ilegales) la defensora que se coloca por
+  delante bloquea al portador y la partida se estanca:
+
+  | Desempate | Empates d=3 | Robos d=3 | Empates d=2 |
+  |---|---|---|---|
+  | Ninguno | 43 % | 168 | 40 % |
+  | **Persecución (por defecto)** | **19 %** | 490 | **34 %** |
+  | Intercepción | 31 % | 365 | 57 % |
+
+  Se elige la persecución. La estrategia se cambia con el campo opcional `prueba.estrategia_robo`
+  (`"persecucion"` o `"intercepcion"`; un valor inválido avisa y usa la de por defecto) o con
+  `MinimaxAgent(..., estrategia_robo=...)`. Con profundidad 2 los agentes se pasan el recurso de
+  uno a otro (1 364 robos en 250 partidas) porque no ven la recuperación; con profundidad 3 son 490.
+- **La regla de robo NO se debilita:** entrar a la celda del portador rival le quita el recurso.
+  Esa misma regla produce el empate por equilibrio en mapas simétricos (el primero en recoger con
+  un rival adyacente es robado) y también sostiene el caso mínimo 7 (`caso_adversarial.json`: A1
+  y B1 pegados al recurso; "lo mejor no es ir directo"). Proteger al primero en recoger (inmunidad
+  de un turno, robo solo con superioridad numérica) rompería ese caso exigido por el enunciado.
+- **Ventaja inicial y equilibrio:** con las reglas actuales (robo al pisar la celda del portador,
+  unidades apilables, igual velocidad), recoger el recurso con un rival adyacente lo pierde. Por
+  eso una ventaja de 2 pasos (o más) hasta el recurso decide la partida y la igualdad empata por
+  equilibrio. Verificado cambiando solo la celda del recurso en `mapa_grande.json`:
+
+  | Recurso en | Pasos de A3 / B3 | Resultado |
+  |---|---|---|
+  | (10,10) — `mapa_grande.json` | 18 / 16 | Gana B en 68 turnos |
+  | (9,9) | 16 / 18 | Gana A en 67 turnos |
+  | (9,10) o (10,9) — `mapa_grande_simetrico.json` | 17 / 17 | Empate a 100 turnos (nadie recoge) |
+
+  Decisión: `mapa_grande.json` se conserva con la ventaja de B (partida decisiva, documentada) y
+  `mapa_grande_simetrico.json` ofrece la versión sin ventaja. `mapa_3v3.json`, simétrico, empata
+  por equilibrio. No existe un mapa a la vez perfectamente justo y decisivo.
 
 ## 5. Verificación de soluciones
 

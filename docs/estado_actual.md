@@ -18,7 +18,7 @@ antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual
 | Adversarial: Minimax puro y alfa-beta, utilidad, agente | ✅ Completo |
 | Verificación de legalidad de acciones adversariales | ✅ Completo |
 | CLI (`main.py`): banderas, menú interactivo, modos busqueda/partida/adversarial | ✅ Completo |
-| Suite de pruebas automatizadas | ✅ 323 pruebas + subtests, todas en verde |
+| Suite de pruebas automatizadas | ✅ 375 pruebas + subtests, todas en verde |
 | Interfaz gráfica (`src/ui/gui.py`) | ✅ Completo (Tkinter: busqueda/adversarial/partida) |
 | Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ✅ Completos |
 
@@ -85,8 +85,8 @@ python -m unittest discover -s tests -t . -v
 python -m pytest -q
 ```
 
-Última corrida real (2026-10-19): **323 pruebas, 0 fallos, ~6 s**
-(`python -m unittest discover -s tests -t .`, salida `Ran 323 tests ... OK`).
+Última corrida real (2026-10-19): **375 pruebas, 0 fallos, ~6 s**
+(`python -m unittest discover -s tests -t .`, salida `Ran 375 tests ... OK`).
 
 Los 10 casos mínimos exigidos por el enunciado están aislados en `tests/test_casos_minimos.py`,
 cada uno con su escenario reproducible en `config/caso_*.json`, y comparan explícitamente el valor

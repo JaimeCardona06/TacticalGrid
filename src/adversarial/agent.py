@@ -1,5 +1,6 @@
 import time
 
+from src.adversarial.desempate import ESTRATEGIAS_DE_ROBO, PERSECUCION, clave_de_avance
 from src.adversarial.minimax import minimax_alphabeta, minimax_puro
 
 
@@ -27,31 +28,42 @@ class MinimaxAgent:
     AI intervention:    la IA asistió en la estructuración del agente, la
                         refactorización de las métricas y el verificador de
                         legalidad.
-    Student validation: Validado por el equipo con la suite completa (323 pruebas),
+    Student validation: Validado por el equipo con la suite completa (375 pruebas),
                         incluida la legalidad de la acción elegida, y con las
                         simulaciones de partida de los modos partida/adversarial.
     """
 
-    def __init__(self, nombre, profundidad=3, usar_poda=True, orden_direcciones=None):
+    def __init__(self, nombre, profundidad=3, usar_poda=True, orden_direcciones=None,
+                 desempatar_por_avance=False, estrategia_robo=PERSECUCION):
         """Crea el agente de un bando con la configuración de búsqueda dada.
 
         Purpose:            fijar los parámetros del agente (bando, profundidad,
-                            algoritmo con o sin poda y orden de acciones).
+                            algoritmo con o sin poda, orden de acciones y si
+                            desempata por avance entre acciones de igual valor).
         Preconditions:      nombre es "A" o "B"; profundidad es un entero >= 1;
                             usar_poda es booleano; orden_direcciones es None o
-                            una secuencia de desplazamientos (df, dc).
+                            una secuencia de desplazamientos (df, dc);
+                            desempatar_por_avance es booleano (False por defecto:
+                            se conserva la primera acción óptima del orden);
+                            estrategia_robo es "persecucion" (por defecto) o
+                            "intercepcion" (cómo desempata cuando el rival lleva el
+                            recurso; solo importa si desempatar_por_avance es True).
         Postconditions:     instancia lista para decidir y verificar; no toca
                             el estado del juego.
         Complexity:         O(1) tiempo y espacio.
         AI usage:           Yes
         AI intervention:    la IA escribió el constructor y esta documentación.
         Student validation: Validado por el equipo instanciando agentes en las
-                            323 pruebas y en las simulaciones de partida.
+                            375 pruebas y en las simulaciones de partida.
         """
         self.nombre = nombre
         self.profundidad = profundidad
         self.usar_poda = usar_poda
         self.orden_direcciones = orden_direcciones
+        self.desempatar_por_avance = desempatar_por_avance
+        if estrategia_robo not in ESTRATEGIAS_DE_ROBO:
+            raise ValueError(f"estrategia_robo desconocida: {estrategia_robo!r}. Opciones: {list(ESTRATEGIAS_DE_ROBO)}")
+        self.estrategia_robo = estrategia_robo
 
     def seleccionar_movimiento(self, estado, tablero, base_a, base_b):
         """Elige la mejor acción del bando y devuelve las métricas del turno.
@@ -77,7 +89,7 @@ class MinimaxAgent:
         AI intervention:    la IA asistió en la integración de las métricas, la
                             latencia y la refactorización de la salida.
         Student validation: Validado por el equipo comparando las métricas de
-                            partida/adversarial con los 323 tests y verificando
+                            partida/adversarial con los 375 tests y verificando
                             que la acción elegida siempre es legal.
         """
         es_max = self.nombre == "A"
@@ -104,10 +116,16 @@ class MinimaxAgent:
                 stats, self.orden_direcciones,
             )
 
+        empatadas = None
+        if self.desempatar_por_avance and mejor_movimiento is not None:
+            mejor_movimiento, empatadas = self._desempatar(
+                estado, tablero, base_a, base_b, valor, mejor_movimiento, es_max)
+
         t_fin = time.perf_counter()
         legal, detalle = self.verificar_accion(estado, tablero, mejor_movimiento)
 
         metricas = {
+            "acciones_empatadas": empatadas,
             "accion": mejor_movimiento,
             "accion_legal": legal,
             "detalle_legalidad": detalle,
@@ -122,6 +140,52 @@ class MinimaxAgent:
             "profundidad_alcanzada": stats.get("profundidad_alcanzada", 0),
         }
         return mejor_movimiento, metricas
+
+    def _desempatar(self, estado, tablero, base_a, base_b, valor, mejor_movimiento, es_max):
+        """Entre las acciones con el MISMO valor Minimax, elige la que más avanza.
+
+        Purpose:            evitar que un bando que no puede cambiar el valor dentro
+                            del horizonte mueva siempre la primera unidad del orden
+                            (fichas que "deambulan"): entre las acciones óptimas
+                            empatadas elige la de menor clave de avance (ver
+                            desempate.clave_de_avance).
+        Preconditions:      valor y mejor_movimiento son lo que devolvió la búsqueda
+                            sobre `estado` para este agente; es_max indica si el
+                            agente es MAX.
+        Postconditions:     devuelve (accion, cantidad_de_empatadas). Solo se
+                            consideran acciones cuyo valor exacto es igual a
+                            `valor`: nunca elige una acción peor ni cambia el valor.
+                            Cada acción se comprueba con alfa-beta en la ventana
+                            estrecha (valor - 0.5, valor + 0.5), que devuelve el
+                            valor exacto si coincide y una cota fuera de la ventana
+                            si no. Si hay un empate de clave, gana la primera del
+                            orden de generación. No cuenta en las métricas de
+                            nodos del agente y no modifica el estado.
+        Complexity:         hasta u*4 búsquedas de profundidad d-1 con ventana
+                            estrecha, más un BFS por origen nuevo (O(f*c)).
+        AI usage:           Yes
+        AI intervention:    la IA escribió el método y esta documentación.
+        Student validation: Validado por el equipo con tests/test_desempate.py:
+                            elige la acción que avanza entre las empatadas, nunca
+                            cambia el valor y es independiente del orden de las
+                            acciones.
+        """
+        base_propia, base_rival = (base_a, base_b) if self.nombre == "A" else (base_b, base_a)
+        cache = {}
+        candidatas = []
+        for movimiento, hijo in estado.sucesores(tablero, orden_direcciones=self.orden_direcciones):
+            if movimiento == mejor_movimiento:
+                candidatas.append((movimiento, hijo))
+                continue
+            valor_hijo, _ = minimax_alphabeta(
+                hijo, self.profundidad - 1, valor - 0.5, valor + 0.5, not es_max,
+                tablero, base_a, base_b, None, self.orden_direcciones,
+            )
+            if abs(valor_hijo - valor) < 0.5:
+                candidatas.append((movimiento, hijo))
+        elegida = min(candidatas, key=lambda c: clave_de_avance(c[1], self.nombre, tablero, base_propia, base_rival, cache,
+                                                      self.estrategia_robo))
+        return elegida[0], len(candidatas)
 
     def verificar_accion(self, estado, tablero, accion):
         """Verifica, con datos crudos del tablero, que una acción sea legal.

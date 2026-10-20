@@ -20,7 +20,7 @@ Complexity:         la del modo elegido (búsqueda: la del algoritmo; partida y
                     ramificación del tablero y d = profundidad de Minimax).
 AI usage:           Yes
 AI intervention:    la IA escribió el archivo y esta documentación.
-Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (323 pruebas).
+Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (375 pruebas).
 
 Modelo adversarial N vs N: el bucle Minimax usa TODAS las unidades de cada
 bando (ver EstadoJuego en src/models/state.py). En cada turno el bando activo
@@ -40,6 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from src.adversarial.agent import MinimaxAgent
+from src.adversarial.desempate import ESTRATEGIAS_DE_ROBO, PERSECUCION
 from src.game.navegacion import ProblemaNavegacion
 from src.game.verificador import verificar_solucion
 from src.models.state import EstadoJuego
@@ -53,6 +54,9 @@ MODOS = ("busqueda", "partida", "adversarial")
 
 # Regla determinista de cierre: si nadie gana en MAX_TURNOS, la partida empata.
 MAX_TURNOS = 100
+
+# Cómo desempatan los agentes de partida cuando el rival lleva el recurso (prueba.estrategia_robo).
+ESTRATEGIA_DE_ROBO_POR_DEFECTO = PERSECUCION
 
 _ALGORITMOS_SIMPLES = {"BFS": bfs, "DFS": dfs, "UCS": ucs}
 
@@ -225,7 +229,7 @@ def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
     Complexity:         la del algoritmo elegido más la verificación O(n).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (323 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (375 pruebas).
     """
     prueba = escenario.prueba or {}
 
@@ -339,10 +343,27 @@ def _preparar_fase_4(escenario, profundidad=None, usar_poda=None):
     return estado, unidades_a, unidades_b, profundidad, usar_poda, orden
 
 
-def _crear_agentes(profundidad, usar_poda, orden):
-    """Un agente Minimax por bando, con los mismos parámetros de búsqueda."""
+def _estrategia_de_robo(prueba):
+    """Lee prueba.estrategia_robo ("persecucion" por defecto o "intercepcion"); avisa si no es válida."""
+    estrategia = prueba.get("estrategia_robo", ESTRATEGIA_DE_ROBO_POR_DEFECTO)
+    if estrategia not in ESTRATEGIAS_DE_ROBO:
+        print(f"Aviso: 'prueba.estrategia_robo' = {estrategia!r} no es válida {list(ESTRATEGIAS_DE_ROBO)}; "
+              f"se usa '{ESTRATEGIA_DE_ROBO_POR_DEFECTO}'.")
+        return ESTRATEGIA_DE_ROBO_POR_DEFECTO
+    return estrategia
+
+
+def _crear_agentes(profundidad, usar_poda, orden, estrategia_robo=ESTRATEGIA_DE_ROBO_POR_DEFECTO):
+    """Un agente Minimax por bando, con los mismos parámetros de búsqueda.
+
+    Son los agentes de las PARTIDAS: desempatan por avance (entre acciones de igual
+    valor Minimax eligen la que más acerca a su objetivo) para no mover siempre la
+    primera unidad cuando nada cambia el valor. La decisión adversarial suelta
+    (ejecutar_adversarial) conserva la primera acción óptima del orden.
+    """
     return {
-        bando: MinimaxAgent(bando, profundidad=profundidad, usar_poda=usar_poda, orden_direcciones=orden)
+        bando: MinimaxAgent(bando, profundidad=profundidad, usar_poda=usar_poda, orden_direcciones=orden,
+                            desempatar_por_avance=True, estrategia_robo=estrategia_robo)
         for bando in ("A", "B")
     }
 
@@ -368,7 +389,7 @@ def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
                         'partida').
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (323 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (375 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
@@ -421,7 +442,7 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
                         turno (más los acumulados O(1)).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (323 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (375 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
@@ -430,7 +451,8 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
 
     tablero = escenario.tablero
     base_a, base_b = tablero.base_a, tablero.base_b
-    agentes = _crear_agentes(profundidad, usar_poda, orden)
+    estrategia_robo = _estrategia_de_robo(escenario.prueba or {})
+    agentes = _crear_agentes(profundidad, usar_poda, orden, estrategia_robo)
     totales = {
         bando: {"turnos": 0, "generados": 0, "evaluados": 0, "podas": 0, "tiempo_ms": 0.0}
         for bando in ("A", "B")
