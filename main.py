@@ -20,7 +20,7 @@ Complexity:         la del modo elegido (búsqueda: la del algoritmo; partida y
                     ramificación del tablero y d = profundidad de Minimax).
 AI usage:           Yes
 AI intervention:    la IA escribió el archivo y esta documentación.
-Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (420 pruebas).
+Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (421 pruebas).
 
 Modelo adversarial N vs N: el bucle Minimax usa TODAS las unidades de cada
 bando (ver EstadoJuego en src/models/state.py). En cada turno el bando activo
@@ -229,7 +229,7 @@ def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
     Complexity:         la del algoritmo elegido más la verificación O(n).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (420 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (421 pruebas).
     """
     prueba = escenario.prueba or {}
 
@@ -428,7 +428,7 @@ def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
                         'partida').
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (420 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (421 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
@@ -481,7 +481,7 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
                         turno (más los acumulados O(1)).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (420 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (421 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:

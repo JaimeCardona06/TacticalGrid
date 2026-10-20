@@ -18,7 +18,7 @@ antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual
 | Adversarial: Minimax puro y alfa-beta, utilidad, agente | ✅ Completo |
 | Verificación de legalidad de acciones adversariales | ✅ Completo |
 | CLI (`main.py`): banderas, menú interactivo, modos busqueda/partida/adversarial | ✅ Completo |
-| Suite de pruebas automatizadas | ✅ 420 pruebas + subtests, todas en verde |
+| Suite de pruebas automatizadas | ✅ 421 pruebas + subtests, todas en verde |
 | Interfaz gráfica (`src/ui/gui.py`) | ✅ Completo (Tkinter: busqueda/adversarial/partida) |
 | Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ✅ Completos |
 
@@ -85,8 +85,8 @@ python -m unittest discover -s tests -t . -v
 python -m pytest -q
 ```
 
-Última corrida real (2026-10-19): **420 pruebas, 0 fallos, ~9 s**
-(`python -m unittest discover -s tests -t .`, salida `Ran 420 tests ... OK`).
+Última corrida real (2026-10-19): **421 pruebas, 0 fallos, ~10 s**
+(`python -m unittest discover -s tests -t .`, salida `Ran 421 tests ... OK`).
 
 Los 10 casos mínimos exigidos por el enunciado están aislados en `tests/test_casos_minimos.py`,
 cada uno con su escenario reproducible en `config/caso_*.json`, y comparan explícitamente el valor
@@ -108,9 +108,9 @@ interfaz gráfica (`python -m src.ui.gui`, sección 11 del manual).
 - Las pruebas de los widgets Tkinter son parciales: `tests/test_marcas_busqueda.py` cubre las
   marcas de inicio/objetivo, el botón Limpiar y el cambio de pestaña; el recorrido visual completo
   de la GUI (layout, tablas, etc.) sigue siendo manual, lanzándola y recorriendo las tres pestañas.
-- No hay pruebas de carga/rendimiento más allá del escenario de 20x20 (`mapa_grande.json`); los
-  tiempos reportados son orientativos y dependen de la máquina (ver limitaciones en
-  `documento_tecnico.md`, sección 10).
+- No hay pruebas de carga/rendimiento más allá de los escenarios 20x20 (`mapa_grande.json` y
+  `mapa_grande_busqueda.json`); los tiempos reportados son orientativos y dependen de la máquina
+  (ver limitaciones en `documento_tecnico.md`, sección 10).
 - No hay prueba automatizada de la oscilación de `mapa_partida.json` con profundidad 1–2 (empate a
   100 turnos porque la utilidad Manhattan ignora los muros); está documentada como limitación 8 del
   documento técnico y en el manual. Con la profundidad sugerida 3, B gana en 22 turnos.

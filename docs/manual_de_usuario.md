@@ -28,6 +28,7 @@ python main.py config/caso_obstaculo.json             # búsqueda con muro + ver
 python main.py config/caso_beam.json                  # Beam Search (k configurable)
 python main.py config/caso_adversarial.json           # decisión adversarial (una jugada)
 python main.py config/mapa_grande.json                # partida 20x20
+python main.py config/mapa_grande_busqueda.json       # búsqueda 20x20 con obstáculos (A1 → base B)
 python main.py config/mapa_agnostico.json             # escenario con terrenos "arena"/"lava"/"roca"
 ```
 
@@ -128,6 +129,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 |---|---|---|
 | BFS vs DFS | `python main.py config/caso_obstaculo.json --algoritmo BFS` y luego `--algoritmo DFS` | Mismos 8 pasos, caminos y exploración distintos |
 | Ruta corta vs económica | `python main.py config/caso_bfs_vs_ucs.json --algoritmo BFS` y `--algoritmo UCS` | BFS: 4 pasos/costo 28; UCS: 6 pasos/costo 12 |
+| Búsqueda grande con obstáculos | `python main.py config/mapa_grande_busqueda.json --algoritmo BFS` (y `UCS`, `DFS`, `A*`, `BEAM --k 8`) | BFS: 37 pasos/costo 55; UCS y A*: 39/39; DFS y Beam también llegan y todas las rutas pasan el verificador |
 | Obstáculo y heurística | `python main.py config/caso_obstaculo.json --algoritmo A* --heuristica manhattan` y `--heuristica distancia_bfs` | Mismo costo 8; `distancia_bfs` expande menos |
 | Memoria limitada (k) | `python main.py config/caso_beam.json --algoritmo BEAM --k 1` … `--k 8` | Con k=1 falla (aunque hay ruta); con k≥2 encuentra el costo 10 |
 | Decisión adversarial | `python main.py config/caso_adversarial.json --profundidad 1` y `--profundidad 3` | Con d=1 agarra el recurso (+4600); con d=3 anticipa el robo y elige otra celda (−4800) |
@@ -147,7 +149,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 420 pruebas + 199 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 421 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -164,6 +166,7 @@ reproducibles en `config/caso_*.json`.
 - `caso_robo_visual.json`: B ya lleva el recurso y A tiene dos fichas (7x7); pensado para **ver** el desempate y el robo cambiando `prueba.estrategia_robo` entre `"ninguna"`, `"persecucion"` e `"intercepcion"`.
 - `caso_intercepcion.json`: B lleva el recurso hacia su base y A debe interceptarlo (10x10, partida 2 contra 1); declara `prueba.estrategia_robo = "intercepcion"`.
 - `mapa_grande_simetrico.json`: igual que `mapa_grande.json` con el recurso en (9,10), a igual distancia de ambos bandos (empata por equilibrio).
+- `mapa_grande_busqueda.json`: tablero 20x20 con obstáculos configurado como búsqueda; A1 (0,1) → base B (19,19) para ejecutar los cinco algoritmos.
 - `caso_bfs_vs_ucs.json`: ruta corta (BFS) vs ruta económica (UCS).
 - `caso_obstaculo.json`: muro que obliga a rodear (BFS/DFS/heurísticas).
 - `caso_beam.json`: señuelo que hace fallar a Beam con k=1.

@@ -9,7 +9,7 @@ AI usage:           Yes
 AI intervention:    la IA asistió en la estructuración de los casos de prueba y
                     en la refactorización de los tableros simulados de las pruebas.
 Student validation: Validado por el equipo ejecutando la suite completa
-                    (420 pruebas) con unittest/pytest.
+                    (421 pruebas) con unittest/pytest.
 """
 
 import unittest

@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 420 pruebas automatizadas + 199 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 421 pruebas automatizadas + 199 subtests.
 
 ---
 
@@ -323,7 +323,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 420 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 421 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -429,6 +429,10 @@ evaluada.
 - **Variación de k en Beam:** caso 5; además `k=2` encuentra la solución con solo 34 nodos generados
   frente a 30 de UCS, mientras `k=1` no explora lo suficiente (9 nodos) y falla.
 - **Comparación de heurísticas:** caso 4; `distancia_bfs` es la única que "ve" el muro.
+- **Búsqueda 20x20 con obstáculos (`config/mapa_grande_busqueda.json`):** A1 (0,1) → base B
+  (19,19) sobre el tablero grande. BFS: 37 pasos/costo 55; DFS: 39/39; UCS: 39/39; A* (las tres
+  heurísticas): 39/39; Beam k=1,2,8: 37/55 y k=4: 39/39. Las diez variantes pasan el verificador
+  independiente (`VÁLIDA`); sirve para ejecutar todos los algoritmos sobre un mapa 20x20.
 - **Partidas completas (1 vs 1):** `mapa_partida.json` (6x6) — gana B en 22 turnos (A: 195 nodos
   generados, 95 evaluados, 27 podas, ~0.3 ms; B: 224 / 118 / 29, ~0.3 ms). El ganador y los turnos
   son los del modelo 1 vs 1 original; los nodos cambiaron respecto a versiones anteriores porque
@@ -614,7 +618,7 @@ como apoyo en todas las fases del proyecto.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **420 pruebas y 199 subtests en verde**
+- Ejecución y verificación de la suite completa: **421 pruebas y 199 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que
