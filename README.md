@@ -52,7 +52,9 @@ python -m src.ui.gui
 
 Abre una ventana Tkinter (sin dependencias nuevas) para cargar un escenario (desplegable de
 `config/` o "Abrir archivo...") y ejecutar sobre él los tres modos del enunciado —búsqueda,
-adversarial y partida— viendo la cuadrícula, el camino y las métricas de cada ejecución. Detalle
+adversarial y partida— viendo la cuadrícula, el camino y las métricas de cada ejecución. En la
+pestaña Búsqueda el tablero marca el inicio (unidad elegida) con "I" cian y el objetivo con "O"
+naranja; el botón "Limpiar" borra el camino y el panel de resultados sin mover las marcas. Detalle
 completo en `docs/manual_de_usuario.md`, sección 11.
 
 ## Selección del algoritmo (en tiempo de ejecución)
@@ -82,7 +84,7 @@ Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado**
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (414 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (420 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```

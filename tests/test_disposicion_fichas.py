@@ -21,6 +21,7 @@ from src.scenario.escenario import Unidad
 from src.scenario.loader import cargar_escenario
 from src.ui.controlador import OCUPACION_DE_RANURA, RADIO_FICHA_SOLA, disposicion_de_fichas
 from tests.base import RAIZ
+from tests.tk_soporte import raiz_compartida
 
 
 def ficha(identificador, posicion):
@@ -98,20 +99,16 @@ class TestDibujoEnElCanvas(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            import tkinter
             from src.ui import colores
             from src.ui.gui import CanvasEscenario
-            cls.raiz = tkinter.Tk()
-            cls.raiz.withdraw()
+            cls.raiz = raiz_compartida()
+        except unittest.SkipTest:
+            raise
         except Exception as error:        # sin pantalla, sin tkinter, etc.
             raise unittest.SkipTest(f"no se puede abrir Tkinter: {error}")
         cls.CanvasEscenario = CanvasEscenario
         cls.color_recurso = colores.COLOR_RECURSO
         cls.tablero = cargar_escenario(os.path.join(RAIZ, "config", "mapa_ejemplo.json")).tablero
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.raiz.destroy()
 
     def dibujar(self, unidades, portador_id=None, recurso_pos=(2, 2)):
         """Devuelve (canvas, óvalos de fichas en orden de dibujo, óvalos del recurso en orden de dibujo)."""
@@ -183,7 +180,7 @@ class TestDibujoEnElCanvas(unittest.TestCase):
     def test_el_recurso_siempre_esta_en_el_canvas_durante_la_partida_visual(self):
         """En caso_robo_visual el recurso se ve en cada turno y, tras el robo, junto a A1."""
         from src.ui.gui import AppTacticalGrid
-        app = AppTacticalGrid()
+        app = AppTacticalGrid(raiz_compartida())
         app.withdraw()
         try:
             app._cargar_escenario(os.path.join(RAIZ, "config", "caso_robo_visual.json"))

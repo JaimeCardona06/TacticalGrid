@@ -22,6 +22,7 @@ from src.scenario.escenario import Unidad
 from src.scenario.loader import cargar_escenario
 from src.ui.controlador import iniciar_partida, jugar_turno
 from tests.base import RAIZ
+from tests.tk_soporte import raiz_compartida
 
 RUTA_VISUAL = os.path.join(RAIZ, "config", "caso_robo_visual.json")
 A = [Unidad("A1", "A", "estandar", (0, 0)), Unidad("A2", "A", "estandar", (0, 1))]
@@ -137,8 +138,10 @@ class TestTablaDeLaGUI(unittest.TestCase):
     def setUpClass(cls):
         try:
             from src.ui.gui import AppTacticalGrid
-            cls.app = AppTacticalGrid()
+            cls.app = AppTacticalGrid(raiz_compartida())
             cls.app.withdraw()
+        except unittest.SkipTest:
+            raise
         except Exception as error:
             raise unittest.SkipTest(f"no se puede abrir Tkinter: {error}")
 

@@ -147,7 +147,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 414 pruebas + 199 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 420 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -205,8 +205,10 @@ consola).
 
 El tablero se dibuja a la izquierda: terreno por costo (verde = más barato, marrón = más caro, sin
 mirar el nombre del terreno), obstáculos en gris oscuro, bases con borde de color por bando,
-unidades como círculos con su id y color de bando, el recurso y el turno actual en la esquina. El
-recurso se ve **siempre**: libre, es un punto amarillo en su celda; si lo lleva una ficha, es una
+unidades como círculos con su id y color de bando, el recurso y el turno actual en la esquina. En
+la pestaña **Búsqueda**, el inicio (la unidad elegida) se marca con borde cian y la letra "I", y el
+objetivo (fila/columna) con borde naranja y la letra "O"; las bases siguen con borde azul (A) y rojo
+(B). El recurso se ve **siempre**: libre, es un punto amarillo en su celda; si lo lleva una ficha, es una
 marca amarilla pegada a la ficha del portador (que además tiene el contorno grueso), de modo que
 se ve en qué celda y en manos de quién está. Las reglas permiten que varias unidades compartan celda (así se roba el
 recurso: entrando a la celda del portador); cuando eso ocurre, las fichas se dibujan **una al lado
@@ -218,7 +220,8 @@ recurso se distingue por su contorno grueso. Una ficha sola se ve igual que siem
 - **Búsqueda:** elige la unidad, el objetivo (fila y columna), el algoritmo (BFS/DFS/UCS/A*/Beam)
   y, si aplica, la heurística y `k`. "Resolver" dibuja el camino encontrado sobre el tablero y
   muestra las métricas (éxito, costo, estados generados/expandidos, máximo de frontera, tiempo) y
-  el informe de verificación independiente, igual que en consola.
+  el informe de verificación independiente, igual que en consola. "Limpiar" borra el camino y el
+  panel de resultados, pero mantiene las marcas de inicio/objetivo.
 - **Adversarial:** elige profundidad y si se usa poda alfa-beta. "Evaluar jugada" decide, entre
   TODAS las unidades del bando del turno (modelo N vs N), cuál se mueve y a dónde, y resalta esa
   celda destino en el tablero **sin mover la unidad**; el panel muestra qué unidad fue elegida, su
