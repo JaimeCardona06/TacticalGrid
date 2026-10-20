@@ -6,8 +6,8 @@ Proyecto de Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, 
 
 ## Integrantes
 
-- MARIANA LOPEZ FLOREZ
-- MAURICIO GONZALES CARMONA
+- Mariana Lopez Florez
+- Mauricio Gonzales Carmona
 - Jaime Andrés Cardona Díaz
 
 ## Requisitos

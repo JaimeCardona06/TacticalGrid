@@ -434,6 +434,15 @@ evaluada.
   son los del modelo 1 vs 1 original; los nodos cambiaron respecto a versiones anteriores porque
   ganar antes vale más (sección 5.2) modifica la poda y el desempate por avance (sección 5.3)
   puede elegir otra acción entre las de igual valor.
+- **Profundidad 1 o 2 en `mapa_partida.json`:** con d=1 o d=2 la misma partida **empata a 100
+  turnos por oscilación**: A1 alterna entre (0,3) y (0,4) y B1 entre (5,3) y (5,4) sin recoger el
+  recurso (verificado). La causa es la utilidad de la carrera: usa distancia Manhattan, que ignora
+  el muro de la fila 1 (columnas 1–4). Desde (0,4), la celda (0,5) parece "más lejos" en Manhattan
+  aunque es la entrada al rodeo real; con d=1/2 el horizonte no ve el desvío y el agente vuelve.
+  El desempate por avance usa distancias reales, pero solo entre acciones de **igual** valor
+  Minimax, así que no corrige una preferencia Manhattan equivocada. No es un fallo de la búsqueda
+  ni del verificador. Con d=3 el horizonte ve el rodeo por (0,5), B recoge en el turno 12 y gana en
+  22; la limitación completa está en la sección 10 (punto 8).
 - **Robo por intercepción (1 contra 2, `config/caso_intercepcion.json`, 10x10 sin obstáculos):** B
   ya lleva el recurso en (2,2) hacia su base (9,9); A tiene A1 detrás del portador y A2 por delante
   de su ruta. El JSON declara `"estrategia_robo": "intercepcion"`: **A1 roba en el turno 55 y A gana
@@ -528,6 +537,17 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
    que si ambos bandos llegan a la vez nadie lo recoge (`mapa_3v3.json`,
    `mapa_grande_simetrico.json`). Es el comportamiento racional de las reglas, no un fallo del agente;
    para una partida decisiva un bando necesita partir al menos 2 pasos más cerca (sección 8.2).
+8. **Oscilación con profundidad 1–2 en mapas con muros (`mapa_partida.json`):** la utilidad
+   adversarial mide la carrera por el recurso con distancia Manhattan, que **ignora los muros**.
+   En `mapa_partida.json` (muro en la fila 1, columnas 1–4) A1 alterna entre (0,3) y (0,4) y B1
+   entre (5,3) y (5,4) sin recoger el recurso; la partida empata a los 100 turnos. Con d=1/2 el
+   horizonte no alcanza a ver el rodeo real por (0,5), y el desempate por avance no lo corrige
+   porque solo decide entre acciones de igual valor Minimax (aquí los valores no empatan). Con
+   d=3 el horizonte ve el rodeo, B recoge en el turno 12 y gana en 22. **Respuesta para la
+   sustentación:** es una limitación conocida de la evaluación Manhattan con horizonte corto, no
+   de la búsqueda; se usa la profundidad sugerida por el JSON (3). Una utilidad con distancias
+   reales (BFS) evitaría esa preferencia geométrica, a costa de O(f·c) por hoja si se recalcula en
+   cada una.
 
 ---
 

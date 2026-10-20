@@ -111,6 +111,9 @@ interfaz gráfica (`python -m src.ui.gui`, sección 11 del manual).
 - No hay pruebas de carga/rendimiento más allá del escenario de 20x20 (`mapa_grande.json`); los
   tiempos reportados son orientativos y dependen de la máquina (ver limitaciones en
   `documento_tecnico.md`, sección 10).
+- No hay prueba automatizada de la oscilación de `mapa_partida.json` con profundidad 1–2 (empate a
+  100 turnos porque la utilidad Manhattan ignora los muros); está documentada como limitación 8 del
+  documento técnico y en el manual. Con la profundidad sugerida 3, B gana en 22 turnos.
 
 ---
 

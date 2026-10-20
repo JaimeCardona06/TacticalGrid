@@ -207,6 +207,11 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
   Decisión: `mapa_grande.json` se conserva con la ventaja de B (partida decisiva, documentada) y
   `mapa_grande_simetrico.json` ofrece la versión sin ventaja. `mapa_3v3.json`, simétrico, empata
   por equilibrio. No existe un mapa a la vez perfectamente justo y decisivo.
+- **Limitación aceptada: profundidad 1–2 en `mapa_partida.json`.** La utilidad de la carrera usa
+  Manhattan (ignora muros); con d=1/2 A1 alterna (0,3)↔(0,4) y B1 (5,3)↔(5,4) sin recoger y la
+  partida empata a 100 turnos. Con d=3 el horizonte ve el rodeo por (0,5) y B gana en 22. Se decide
+  documentarla y usar la profundidad sugerida por el JSON (3) en las demos; cambiar la utilidad a
+  distancias reales (BFS) queda como mejora posible, a costa de O(f·c) por hoja.
 
 ## 5. Verificación de soluciones
 

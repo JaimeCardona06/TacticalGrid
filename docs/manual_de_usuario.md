@@ -135,6 +135,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Minimax vs alfa-beta | `--algoritmo MINIMAX` y `--algoritmo ALFA_BETA` (d=3) | Misma acción y valor; alfa-beta poda y evalúa menos nodos |
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
+| Profundidad baja en mapa con muros | `python main.py config/mapa_partida.json --profundidad 1` (y `--profundidad 2`) | **Empate por oscilación** a 100 turnos: A1 alterna (0,3)↔(0,4) y B1 (5,3)↔(5,4) sin recoger. La utilidad Manhattan ignora el muro de la fila 1 y el horizonte corto no ve el rodeo por (0,5). Con `--profundidad 3` (la sugerida por el JSON) B recoge en el turno 12 y gana en 22. Es una limitación conocida; usa d=3 para la demo |
 | Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando), cada acción verificada. Termina en **empate por equilibrio** (100 turnos): el recurso está en el centro exacto, ambos bandos llegan a la vez y recogerlo primero lo expone al robo, así que nadie lo recoge |
 | Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 y con d=3 B gana en 68 turnos: su portador entra a la base en cuanto puede (ganar antes vale más). B gana porque B3 parte 2 pasos más cerca del recurso; mientras tanto A3 persigue al portador (desempate por avance) |
 | **Ver el desempate y el robo** | `python main.py config/caso_robo_visual.json` (o ábrelo en la GUI, pestaña Partida) y repite cambiando en el JSON `"estrategia_robo"` | `"ninguna"`: A1 deambula arriba, no hay robo y gana B en 14 turnos. `"persecucion"` (por defecto): en el turno 5 `>>> ROBO: A1 le quita el recurso a B1` (fíjate en los turnos 2 a 6: el portador entra a la celda de A1, y tras el robo B1 comparte celda con A1 y no puede quitárselo en el sitio; ver `docs/decisiones.md`) y gana A en 19. `"intercepcion"`: el robo llega en el turno 9 y gana A en 27 |
@@ -179,6 +180,7 @@ reproducibles en `config/caso_*.json`.
 | "No hay acciones legales…" | La unidad está encerrada (muros). Revisa el mapa. |
 | Beam no encuentra solución | Con k pequeño puede descartar el camino bueno; aumenta `--k`. |
 | Acentos raros en consola | Usa una terminal UTF-8 (Windows Terminal o PowerShell moderno); el programa ya reconfigura la salida a UTF-8. |
+| Corrí `mapa_partida.json` con `--profundidad 1` o `2` y empató a 100 turnos | Es esperado: la utilidad usa Manhattan, que ignora muros, y con horizonte corto los agentes oscilan sin recoger el recurso. Usa `--profundidad 3` (la del JSON): B gana en 22 turnos. Documentado como limitación 8 en `documento_tecnico.md` |
 | Quiero probar mi propio mapa | Copia un JSON de `config/`, edítalo (dimensión, terrenos, costos, unidades, objetivo) y pásalo como primer argumento. Se valida todo o nada. |
 
 ## 11. Interfaz gráfica
