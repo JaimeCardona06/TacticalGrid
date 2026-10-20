@@ -21,7 +21,7 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 | Inicio igual al objetivo | Camino `[inicio]`, 0 movimientos, costo 0 | Caso límite natural: la meta se comprueba al sacar de la frontera. |
 | Camino devuelto | Incluye la celda de inicio; el costo no la cuenta | Facilita la verificación del camino. |
 | Formato de un sucesor | `(accion, nuevo_estado, costo)`; la acción es la dirección ("arriba", "derecha", "abajo", "izquierda") | El destino ya es el nuevo estado; la dirección dice al verificador qué movimiento se hizo. |
-| Fichas que comparten celda en la GUI | Se dibujan en ranuras separadas dentro de la celda (`controlador.disposicion_de_fichas`, función pura sin tkinter); el portador se pinta al final con contorno grueso; una ficha sola no cambia | Las reglas permiten apilar fichas y el canvas las pintaba en el mismo punto, así que la última tapaba a las demás (en 100 partidas aleatorias, una ficha tapaba al portador en el 13.5 % de los turnos). Es solo visual: no cambia ninguna regla ni resultado. |
+| Fichas que comparten celda en la GUI | Se dibujan en ranuras separadas dentro de la celda (`controlador.disposicion_de_fichas`, función pura sin tkinter); el portador se pinta al final con contorno grueso; el recurso se pinta siempre encima (libre: punto amarillo en su celda; transportado: marca amarilla pegada al portador); una ficha sola no cambia | Las reglas permiten apilar fichas y el canvas las pintaba en el mismo punto, así que la última tapaba a las demás (en 100 partidas aleatorias, una ficha tapaba al portador en el 13.5 % de los turnos). Es solo visual: no cambia ninguna regla ni resultado. |
 | Interfaz | Tkinter (`python -m src.ui.gui`) | Viene con Python; su `Canvas` basta para dibujar tablero y camino. La lógica vive en `src/ui/controlador.py`, sin tkinter, para poder probarla. |
 
 ## 2. Carga y validación del escenario
@@ -113,6 +113,33 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 - **Reglas deterministas:** recoger al pisar la celda del recurso libre; mientras lo lleva, el
   recurso viaja con el portador; robar al pisar la celda del portador rival; victoria al dejar el
   recurso en la base propia; empate con `MAX_TURNOS = 100`; se permite apilar unidades.
+- **Consecuencias de la regla de robo (decididas y aceptadas):** robar es *entrar* a la celda del
+  portador rival desde una celda vecina. De eso se derivan cuatro efectos que conviene conocer
+  (comprobados en `tests/test_reglas_de_robo.py` y visibles en `config/caso_robo_visual.json`,
+  turnos 2 a 6):
+  1. **Compartir celda con el portador no permite robar.** Tras un robo, el despojado queda en la
+     misma celda que el nuevo portador y no puede quitárselo en el sitio: no existe una acción
+     "quedarse" ni "quitar". Para recuperarlo debe salir y volver a entrar, y para entonces el
+     portador casi siempre ya se movió. **Por qué se acepta:** si quien comparte celda pudiera
+     quitarlo al instante, el recurso cambiaría de manos en *cada* turno (los dos bandos se lo
+     quitarían por turnos) y la partida caería en un bucle sin fin; evitarlo exigiría un indicador
+     de protección en el estado. Con la regla actual el estado se mantiene simple y las partidas
+     avanzan.
+  2. **El portador puede entrar a la celda de una ficha rival sin perder el recurso** (la ficha
+     rival ya está ahí, no "entra"). Es un efecto de lo anterior; el rival no puede robarle desde
+     esa celda y debe salir y volver.
+  3. **No existe "pasar":** toda acción mueve una unidad a una celda vecina. Un bando con una sola
+     ficha está obligado a moverla y puede quedar en zugzwang (en `caso_robo_visual`, el turno 4
+     de B: desde la celda que comparte con A1, cualquier movimiento la deja junto a A1).
+  4. **El robo exige estar en una celda vecina al empezar el turno:** por eso perseguir por detrás a
+     igual velocidad nunca alcanza al portador (ver "Estrategia de robo").
+
+  *Alternativas evaluadas y descartadas:* (A) prohibir al portador entrar a la celda de una ficha
+  rival (cerraría el "abrazo", pero introduce bloqueos que hay que resolver y el equipo ya decidió
+  permitir apilar); (B) una acción "quitar" para quien comparte celda (arregla la falta de
+  revancha, pero sin protección de un turno produce el bucle sin fin descrito y con protección
+  exige un indicador nuevo en el estado). Ninguna afecta al caso mínimo 7, que depende de que el
+  primero en recoger con un rival adyacente sea robado.
 - **Utilidad (perspectiva de MAX = A):** +10000 si gana A / −10000 si gana B; con portador,
   ±(5000 − 100 × distancia a su base); recurso libre, 50 × (distancia de la unidad más cercana de
   B − la de A).

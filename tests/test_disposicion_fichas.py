@@ -99,50 +99,112 @@ class TestDibujoEnElCanvas(unittest.TestCase):
     def setUpClass(cls):
         try:
             import tkinter
+            from src.ui import colores
             from src.ui.gui import CanvasEscenario
             cls.raiz = tkinter.Tk()
             cls.raiz.withdraw()
         except Exception as error:        # sin pantalla, sin tkinter, etc.
             raise unittest.SkipTest(f"no se puede abrir Tkinter: {error}")
         cls.CanvasEscenario = CanvasEscenario
+        cls.color_recurso = colores.COLOR_RECURSO
         cls.tablero = cargar_escenario(os.path.join(RAIZ, "config", "mapa_ejemplo.json")).tablero
 
     @classmethod
     def tearDownClass(cls):
         cls.raiz.destroy()
 
-    def dibujar(self, unidades, portador_id=None):
+    def dibujar(self, unidades, portador_id=None, recurso_pos=(2, 2)):
+        """Devuelve (canvas, óvalos de fichas en orden de dibujo, óvalos del recurso en orden de dibujo)."""
         canvas = self.CanvasEscenario(self.raiz)
-        canvas.dibujar(self.tablero, unidades, "A", (2, 2), portador_id=portador_id)
+        canvas.dibujar(self.tablero, unidades, "A", recurso_pos, portador_id=portador_id)
         ovalos = [i for i in canvas.find_all() if canvas.type(i) == "oval"]
-        return canvas, ovalos
+        fichas = [i for i in ovalos if canvas.itemcget(i, "fill") != self.color_recurso]
+        recursos = [i for i in ovalos if canvas.itemcget(i, "fill") == self.color_recurso]
+        return canvas, fichas, recursos
 
-    def cajas(self, canvas, ovalos):
-        return [canvas.coords(i) for i in ovalos]
+    def centro(self, canvas, item):
+        x0, y0, x1, y1 = canvas.coords(item)
+        return (x0 + x1) / 2, (y0 + y1) / 2
 
     def test_dos_fichas_en_la_misma_celda_se_dibujan_separadas(self):
-        canvas, ovalos = self.dibujar([ficha("A1", (0, 0)), ficha("B1", (0, 0))])
-        fichas = self.cajas(canvas, ovalos)[1:]          # el primer óvalo es el recurso
+        canvas, fichas, _ = self.dibujar([ficha("A1", (0, 0)), ficha("B1", (0, 0))])
         self.assertEqual(len(fichas), 2)
-        (a0, _, a1, _), (b0, _, b1, _) = fichas
+        (a0, _, a1, _), (b0, _, b1, _) = [canvas.coords(i) for i in fichas]
         self.assertLessEqual(a1, b0 + 1e-6)               # una termina donde empieza la otra: no se tapan
 
     def test_el_portador_se_dibuja_al_final_y_con_contorno_grueso_aunque_no_sea_el_primero(self):
-        canvas, ovalos = self.dibujar([ficha("A1", (0, 0)), ficha("B1", (0, 0)), ficha("B2", (0, 0))], portador_id="A1")
-        fichas = ovalos[1:]
-        self.assertEqual(float(canvas.itemcget(fichas[-1], "width")), 3.0)    # el último pintado es el portador
+        canvas, fichas, _ = self.dibujar([ficha("A1", (0, 0)), ficha("B1", (0, 0)), ficha("B2", (0, 0))],
+                                         portador_id="A1")
+        self.assertEqual(float(canvas.itemcget(fichas[-1], "width")), 3.0)    # la última pintada es el portador
         self.assertTrue(all(float(canvas.itemcget(i, "width")) == 1.0 for i in fichas[:-1]))
 
     def test_una_ficha_sola_se_dibuja_igual_que_antes(self):
-        canvas, ovalos = self.dibujar([ficha("A1", (1, 1))])
-        x0, y0, x1, y1 = canvas.coords(ovalos[1])
+        canvas, fichas, _ = self.dibujar([ficha("A1", (1, 1))])
+        x0, y0, x1, y1 = canvas.coords(fichas[0])
         tam = min(32, 640 // self.tablero.columnas, 640 // self.tablero.filas)
         self.assertAlmostEqual(x1 - x0, 2 * 0.35 * tam)
         self.assertAlmostEqual((x0 + x1) / 2, 1 * tam + tam / 2)
 
     def test_acepta_un_generador_de_unidades(self):
-        canvas, ovalos = self.dibujar(f for f in [ficha("A1", (0, 0)), ficha("B1", (0, 0))])
-        self.assertEqual(len(ovalos), 3)
+        canvas, fichas, recursos = self.dibujar(f for f in [ficha("A1", (0, 0)), ficha("B1", (0, 0))])
+        self.assertEqual((len(fichas), len(recursos)), (2, 1))
+
+    def test_recurso_libre_es_un_punto_en_el_centro_de_su_celda(self):
+        canvas, fichas, recursos = self.dibujar([ficha("A1", (0, 0))], recurso_pos=(2, 2))
+        self.assertEqual(len(recursos), 1)
+        tam = min(32, 640 // self.tablero.columnas, 640 // self.tablero.filas)
+        cx, cy = self.centro(canvas, recursos[0])
+        self.assertAlmostEqual(cx, 2 * tam + tam / 2)
+        self.assertAlmostEqual(cy, 2 * tam + tam / 2)
+
+    def test_recurso_transportado_se_ve_pegado_al_portador_y_por_encima(self):
+        """Antes se pintaba DEBAJO de la ficha que lo lleva y no se veía dónde estaba."""
+        canvas, fichas, recursos = self.dibujar([ficha("A1", (1, 1)), ficha("B1", (3, 3))],
+                                                portador_id="A1", recurso_pos=(1, 1))
+        self.assertEqual(len(recursos), 1)
+        todos = [i for i in canvas.find_all() if canvas.type(i) == "oval"]
+        self.assertEqual(todos[-1], recursos[0])                          # es lo último que se pinta
+        tam = min(32, 640 // self.tablero.columnas, 640 // self.tablero.filas)
+        portador = next(i for i in fichas if float(canvas.itemcget(i, "width")) == 3.0)
+        px, py = self.centro(canvas, portador)
+        mx, my = self.centro(canvas, recursos[0])
+        self.assertLess(math.hypot(mx - px, my - py), 0.35 * tam * 1.4)   # pegado a la ficha del portador
+        self.assertTrue(1 * tam <= mx <= 2 * tam and 1 * tam <= my <= 2 * tam)   # y dentro de su celda
+
+    def test_recurso_transportado_con_fichas_apiladas_queda_en_la_ficha_del_portador(self):
+        canvas, fichas, recursos = self.dibujar([ficha("A1", (1, 1)), ficha("B1", (1, 1))],
+                                                portador_id="B1", recurso_pos=(1, 1))
+        portador = next(i for i in fichas if float(canvas.itemcget(i, "width")) == 3.0)
+        otra = next(i for i in fichas if i != portador)
+        mx, my = self.centro(canvas, recursos[0])
+        self.assertLess(math.hypot(mx - self.centro(canvas, portador)[0], my - self.centro(canvas, portador)[1]),
+                        math.hypot(mx - self.centro(canvas, otra)[0], my - self.centro(canvas, otra)[1]))
+
+    def test_el_recurso_siempre_esta_en_el_canvas_durante_la_partida_visual(self):
+        """En caso_robo_visual el recurso se ve en cada turno y, tras el robo, junto a A1."""
+        from src.ui.gui import AppTacticalGrid
+        app = AppTacticalGrid()
+        app.withdraw()
+        try:
+            app._cargar_escenario(os.path.join(RAIZ, "config", "caso_robo_visual.json"))
+            app._reiniciar_partida()
+            turno_robo = None
+            while not app._partida.terminada:
+                app._siguiente_turno()
+                canvas = app.canvas
+                ovalos = [i for i in canvas.find_all() if canvas.type(i) == "oval"]
+                recursos = [i for i in ovalos if canvas.itemcget(i, "fill") == self.color_recurso]
+                self.assertEqual(len(recursos), 1, f"turno {app._partida.turno_num - 1}")
+                estado = app._partida.estado
+                if estado.portador == ("A", 0) and turno_robo is None:
+                    turno_robo = app._partida.turno_num - 1
+                    tam = min(32, 640 // self.tablero.columnas, 640 // self.tablero.filas)
+                    fila, columna = estado.recurso_pos
+                    mx, my = self.centro(canvas, recursos[0])
+                    self.assertTrue(columna * tam <= mx <= (columna + 1) * tam and fila * tam <= my <= (fila + 1) * tam)
+            self.assertEqual(turno_robo, 5)
+        finally:
+            app.destroy()
 
 
 if __name__ == "__main__":

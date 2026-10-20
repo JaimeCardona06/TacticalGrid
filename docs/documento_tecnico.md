@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 400 pruebas automatizadas + 199 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 414 pruebas automatizadas + 199 subtests.
 
 ---
 
@@ -75,11 +75,32 @@ conservan comportamiento y métricas.
 | Movimiento | Una acción por turno: mover la unidad del bando activo a una celda vecina transitable |
 | Recoger | Si la unidad pisa la celda del recurso y nadie lo lleva, pasa a ser suyo |
 | Transporte | Mientras lo lleva, el recurso viaja con la unidad (su posición sigue al portador) |
-| Robo | Si la unidad pisa la celda del rival que transporta el recurso, lo roba |
+| Robo | Si la unidad *entra* a la celda del rival que transporta el recurso, lo roba (ver consecuencias abajo) |
 | Victoria | Gana el bando que deja el recurso en su propia base |
 | Empate | Si nadie gana en `MAX_TURNOS = 100`, la partida empata (regla de cierre determinista) |
 | Sin acciones | Si un bando no tiene acciones legales, la partida se detiene con aviso |
 | Colisiones | No se prohíbe apilar unidades en una celda; el efecto relevante es el robo (ver limitaciones) |
+
+**Consecuencias de la regla de robo.** Como robar es *entrar* a la celda del portador, ocurre que:
+
+1. *Compartir celda con el portador no permite robar.* Tras un robo, el despojado queda en la misma
+   celda que el nuevo portador; como no existe una acción "quedarse" ni "quitar", solo puede
+   salir y volver a entrar, y para entonces el portador ya se movió. Es deliberado: si quien
+   comparte celda pudiera quitarlo en el acto, el recurso cambiaría de manos en cada turno y la
+   partida caería en un bucle sin fin; evitarlo exigiría un indicador de protección dentro del
+   estado.
+2. *El portador puede entrar a la celda de una ficha rival sin perder el recurso*, porque la ficha
+   rival ya está ahí y no "entra".
+3. *No existe "pasar":* un bando con una sola ficha está obligado a moverla y puede quedar en
+   zugzwang.
+4. *Perseguir por detrás a igual velocidad nunca alcanza al portador* (sección 5.3).
+
+Un ejemplo real es `config/caso_robo_visual.json` con la estrategia por defecto: en el turno 2 el
+portador B1 entra a la celda de A1 (efecto 2); en el turno 4, su única ficha debe moverse y queda
+junto a A1 (efecto 3); en el turno 5 A1 entra a su celda y le roba el recurso, y en el turno 6 B1,
+que comparte celda con A1, no puede recuperarlo y se aleja (efecto 1). Las alternativas
+descartadas y sus razones están en `docs/decisiones.md`; los efectos están fijados por
+`tests/test_reglas_de_robo.py`.
 
 ---
 
@@ -302,7 +323,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 400 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 414 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -555,7 +576,15 @@ como apoyo en todas las fases del proyecto.
   demás, incluido el portador) y escribió `controlador.disposicion_de_fichas`, el cambio en
   `CanvasEscenario.dibujar` y `tests/test_disposicion_fichas.py`. Se comprobó que las pruebas del
   dibujo fallan con el código anterior y se jugaron cuatro escenarios completos en la GUI real
-  sin ninguna ficha tapada.
+  sin ninguna ficha tapada. Después, al revisar `caso_robo_visual.json`, se vio que el recurso se
+  pintaba *debajo* de la ficha que lo lleva y no se distinguía dónde estaba; ahora se pinta
+  encima (marca amarilla pegada al portador).
+- **Consecuencias de la regla de robo (Claude Code, Anthropic):** al replicar con el equipo los
+  turnos 2 a 6 de `caso_robo_visual.json` (el despojado comparte celda con el nuevo portador y no
+  puede recuperar el recurso en el sitio), la IA explicó la secuencia exacta, planteó las
+  alternativas y sus costos, y, tras la decisión del equipo de mantener la regla, la documentó
+  (`docs/decisiones.md`, sección 2.4) y escribió `tests/test_reglas_de_robo.py` para que lo
+  documentado no pueda desviarse del código.
 - **Eventos de partida y escenario de demostración (Claude Code, Anthropic):** ante la petición
   del equipo de poder *ver* el desempate y el robo, la IA buscó entre 600 escenarios aleatorios
   pequeños uno donde las tres variantes se distinguen (`config/caso_robo_visual.json`), escribió
@@ -565,7 +594,7 @@ como apoyo en todas las fases del proyecto.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **400 pruebas y 199 subtests en verde**
+- Ejecución y verificación de la suite completa: **414 pruebas y 199 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

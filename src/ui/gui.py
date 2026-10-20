@@ -61,8 +61,11 @@ class CanvasEscenario(tk.Canvas):
                             estado dado. Si varias unidades comparten celda se
                             dibujan una al lado de la otra (controlador.
                             disposicion_de_fichas) y el portador se pinta al
-                            final, para que ninguna tape a otra. No modifica
-                            tablero ni unidades.
+                            final, para que ninguna tape a otra. El recurso se
+                            dibuja al final y siempre visible: libre, un punto
+                            amarillo en su celda; transportado, una marca amarilla
+                            pegada a la ficha del portador. No modifica tablero ni
+                            unidades.
         Complexity:         O(f*c + u) en tiempo, f*c = celdas del tablero, u =
                             número de unidades.
         AI usage:           Yes
@@ -111,11 +114,6 @@ class CanvasEscenario(tk.Canvas):
             self.create_rectangle(x0 + 2, y0 + 2, x0 + tam - 2, y0 + tam - 2,
                                    outline=colores.COLOR_RESALTADO, width=3)
 
-        rx0, ry0 = esquina(recurso_pos)
-        cx, cy = rx0 + tam / 2, ry0 + tam / 2
-        r = max(2, tam / 6)
-        self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=colores.COLOR_RECURSO, outline="")
-
         disposicion = controlador.disposicion_de_fichas(unidades)
         for unidad in sorted(unidades, key=lambda u: u.id == portador_id):   # el portador se pinta al final
             ux0, uy0 = esquina(unidad.posicion)
@@ -129,6 +127,25 @@ class CanvasEscenario(tk.Canvas):
             if r >= 6:   # si la ficha quedó muy chica, el color del bando basta
                 self.create_text(cx, cy, text=unidad.id, fill="white",
                                  font=("TkDefaultFont", 8 if fr >= UMBRAL_RADIO_LETRA_NORMAL else 6))
+
+        # El recurso se pinta DESPUÉS de las fichas para que nunca quede tapado: libre, como un
+        # punto amarillo en el centro de su celda; transportado, como una marca amarilla pegada
+        # a la ficha del portador (el portador, además, tiene contorno grueso).
+        portador = next((u for u in unidades if u.id == portador_id), None) if portador_id is not None else None
+        if portador is not None:
+            px0, py0 = esquina(portador.posicion)
+            fx, fy, fr = disposicion[portador.id]
+            rm = max(3, tam * 0.12)
+            mx = min(px0 + (fx + fr * 0.75) * tam, px0 + tam - rm)
+            my = max(py0 + (fy - fr * 0.75) * tam, py0 + rm)
+            self.create_oval(mx - rm, my - rm, mx + rm, my + rm,
+                              fill=colores.COLOR_RECURSO, outline="black", width=1)
+        else:
+            rx0, ry0 = esquina(recurso_pos)
+            rcx, rcy = rx0 + tam / 2, ry0 + tam / 2
+            rr = max(2, tam / 6)
+            self.create_oval(rcx - rr, rcy - rr, rcx + rr, rcy + rr,
+                              fill=colores.COLOR_RECURSO, outline="black", width=1)
 
         self.create_text(4, 4, anchor="nw", text=f"Turno: {turno}", fill="black")
 

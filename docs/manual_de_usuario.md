@@ -137,7 +137,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
 | Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando), cada acción verificada. Termina en **empate por equilibrio** (100 turnos): el recurso está en el centro exacto, ambos bandos llegan a la vez y recogerlo primero lo expone al robo, así que nadie lo recoge |
 | Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 y con d=3 B gana en 68 turnos: su portador entra a la base en cuanto puede (ganar antes vale más). B gana porque B3 parte 2 pasos más cerca del recurso; mientras tanto A3 persigue al portador (desempate por avance) |
-| **Ver el desempate y el robo** | `python main.py config/caso_robo_visual.json` (o ábrelo en la GUI, pestaña Partida) y repite cambiando en el JSON `"estrategia_robo"` | `"ninguna"`: A1 deambula arriba, no hay robo y gana B en 14 turnos. `"persecucion"` (por defecto): en el turno 5 `>>> ROBO: A1 le quita el recurso a B1` y gana A en 19. `"intercepcion"`: el robo llega en el turno 9 y gana A en 27 |
+| **Ver el desempate y el robo** | `python main.py config/caso_robo_visual.json` (o ábrelo en la GUI, pestaña Partida) y repite cambiando en el JSON `"estrategia_robo"` | `"ninguna"`: A1 deambula arriba, no hay robo y gana B en 14 turnos. `"persecucion"` (por defecto): en el turno 5 `>>> ROBO: A1 le quita el recurso a B1` (fíjate en los turnos 2 a 6: el portador entra a la celda de A1, y tras el robo B1 comparte celda con A1 y no puede quitárselo en el sitio; ver `docs/decisiones.md`) y gana A en 19. `"intercepcion"`: el robo llega en el turno 9 y gana A en 27 |
 | Robo por intercepción | `python main.py config/caso_intercepcion.json` | El JSON declara `"estrategia_robo": "intercepcion"`: B lleva el recurso hacia su base y A1 le roba en el turno 55; A gana en 57 turnos. Quita ese campo (o pon `"persecucion"`) y B gana en 28 turnos sin robo |
 | Comparar desempates | `python experimentos/comparar_desempates.py --profundidad 3 --escenarios 100` | Partidas completas sobre escenarios aleatorios: persecución tiene menos empates (19 % con 250 escenarios) que sin desempate (43 %) y que intercepción (31 %) |
 | Ventaja inicial y equilibrio | `python main.py config/mapa_grande_simetrico.json` | Misma partida con el recurso a igual distancia de ambos bandos: empate a 100 turnos (nadie recoge). Con el recurso en (9,9) gana A en 67 turnos |
@@ -146,7 +146,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 400 pruebas + 199 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 414 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -203,8 +203,10 @@ consola).
 
 El tablero se dibuja a la izquierda: terreno por costo (verde = más barato, marrón = más caro, sin
 mirar el nombre del terreno), obstáculos en gris oscuro, bases con borde de color por bando,
-unidades como círculos con su id y color de bando, el recurso como un punto amarillo, y el turno
-actual en la esquina. Las reglas permiten que varias unidades compartan celda (así se roba el
+unidades como círculos con su id y color de bando, el recurso y el turno actual en la esquina. El
+recurso se ve **siempre**: libre, es un punto amarillo en su celda; si lo lleva una ficha, es una
+marca amarilla pegada a la ficha del portador (que además tiene el contorno grueso), de modo que
+se ve en qué celda y en manos de quién está. Las reglas permiten que varias unidades compartan celda (así se roba el
 recurso: entrando a la celda del portador); cuando eso ocurre, las fichas se dibujan **una al lado
 de la otra dentro de la celda** (más pequeñas) y nunca una encima de otra, y el portador del
 recurso se distingue por su contorno grueso. Una ficha sola se ve igual que siempre.
