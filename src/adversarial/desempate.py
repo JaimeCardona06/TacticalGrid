@@ -37,6 +37,11 @@ PERSECUCION = "persecucion"
 INTERCEPCION = "intercepcion"
 ESTRATEGIAS_DE_ROBO = (PERSECUCION, INTERCEPCION)
 
+# "Sin desempate por avance": entre acciones de igual valor se conserva la primera del orden.
+# No es una estrategia de robo: sirve para VER, comparando, qué aporta el desempate.
+SIN_DESEMPATE = "ninguna"
+MODOS_DE_DESEMPATE = ESTRATEGIAS_DE_ROBO + (SIN_DESEMPATE,)
+
 _DIRECCIONES = ((-1, 0), (0, 1), (1, 0), (0, -1))
 
 

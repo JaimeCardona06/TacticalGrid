@@ -137,6 +137,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
 | Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando), cada acción verificada. Termina en **empate por equilibrio** (100 turnos): el recurso está en el centro exacto, ambos bandos llegan a la vez y recogerlo primero lo expone al robo, así que nadie lo recoge |
 | Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 y con d=3 B gana en 68 turnos: su portador entra a la base en cuanto puede (ganar antes vale más). B gana porque B3 parte 2 pasos más cerca del recurso; mientras tanto A3 persigue al portador (desempate por avance) |
+| **Ver el desempate y el robo** | `python main.py config/caso_robo_visual.json` (o ábrelo en la GUI, pestaña Partida) y repite cambiando en el JSON `"estrategia_robo"` | `"ninguna"`: A1 deambula arriba, no hay robo y gana B en 14 turnos. `"persecucion"` (por defecto): en el turno 5 `>>> ROBO: A1 le quita el recurso a B1` y gana A en 19. `"intercepcion"`: el robo llega en el turno 9 y gana A en 27 |
 | Robo por intercepción | `python main.py config/caso_intercepcion.json` | El JSON declara `"estrategia_robo": "intercepcion"`: B lleva el recurso hacia su base y A1 le roba en el turno 55; A gana en 57 turnos. Quita ese campo (o pon `"persecucion"`) y B gana en 28 turnos sin robo |
 | Comparar desempates | `python experimentos/comparar_desempates.py --profundidad 3 --escenarios 100` | Partidas completas sobre escenarios aleatorios: persecución tiene menos empates (19 % con 250 escenarios) que sin desempate (43 %) y que intercepción (31 %) |
 | Ventaja inicial y equilibrio | `python main.py config/mapa_grande_simetrico.json` | Misma partida con el recurso a igual distancia de ambos bandos: empate a 100 turnos (nadie recoge). Con el recurso en (9,9) gana A en 67 turnos |
@@ -145,7 +146,7 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 386 pruebas + 199 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 400 pruebas + 199 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -159,6 +160,7 @@ reproducibles en `config/caso_*.json`.
 - `mapa_partida.json`: partida rápida 1 vs 1 (6x6).
 - `mapa_3v3.json`: partida 3 vs 3 (5x5; las 6 unidades activas, d=2).
 - `mapa_grande.json`: partida de gran escala (20x20, 3 unidades por bando); el recurso en (10,10) da a B una ventaja de 2 pasos y gana.
+- `caso_robo_visual.json`: B ya lleva el recurso y A tiene dos fichas (7x7); pensado para **ver** el desempate y el robo cambiando `prueba.estrategia_robo` entre `"ninguna"`, `"persecucion"` e `"intercepcion"`.
 - `caso_intercepcion.json`: B lleva el recurso hacia su base y A debe interceptarlo (10x10, partida 2 contra 1); declara `prueba.estrategia_robo = "intercepcion"`.
 - `mapa_grande_simetrico.json`: igual que `mapa_grande.json` con el recurso en (9,10), a igual distancia de ambos bandos (empata por equilibrio).
 - `caso_bfs_vs_ucs.json`: ruta corta (BFS) vs ruta económica (UCS).
@@ -221,5 +223,14 @@ recurso se distingue por su contorno grueso. Una ficha sola se ve igual que siem
   el estado inicial del escenario (con todas las unidades de cada bando, 1 vs 1 o 3 vs 3 según el
   escenario). Cada clic en "Siguiente turno" juega un turno: mueve la unidad elegida por el agente
   en el tablero y agrega una fila a la tabla (turno, bando, **unidad**, destino, valor, nodos,
-  podas, profundidad, legalidad, tiempo). Al terminar la partida (victoria o empate por límite de
-  turnos) el botón se deshabilita y aparece el desenlace con el resumen acumulado por bando.
+  podas, profundidad, legalidad, tiempo, **empatadas** y **evento**). Al terminar la partida
+  (victoria o empate por límite de turnos) el botón se deshabilita y aparece el desenlace con el
+  resumen acumulado por bando.
+
+  *Cómo ver el robo y el desempate.* La columna **Evento** marca lo importante de cada turno y
+  pinta la fila: verde `RECOGE el recurso (X)`, amarillo `ROBO: X le quita el recurso a Y` y azul
+  `GANA: X deja el recurso en su base`. La columna **Empatadas** dice entre cuántas acciones de
+  igual valor Minimax tuvo que elegir el agente (el desempate por avance actúa cuando es mayor que
+  1; queda vacía si el desempate está apagado). La consola imprime lo mismo: una línea
+  `>>> ROBO: ...` bajo el turno y el sufijo `| Emp. N`. El portador se reconoce en el tablero por su
+  contorno grueso; verás cómo cambia de bando cuando hay un robo.

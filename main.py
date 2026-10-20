@@ -20,7 +20,7 @@ Complexity:         la del modo elegido (búsqueda: la del algoritmo; partida y
                     ramificación del tablero y d = profundidad de Minimax).
 AI usage:           Yes
 AI intervention:    la IA escribió el archivo y esta documentación.
-Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (386 pruebas).
+Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (400 pruebas).
 
 Modelo adversarial N vs N: el bucle Minimax usa TODAS las unidades de cada
 bando (ver EstadoJuego en src/models/state.py). En cada turno el bando activo
@@ -40,7 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from src.adversarial.agent import MinimaxAgent
-from src.adversarial.desempate import ESTRATEGIAS_DE_ROBO, PERSECUCION
+from src.adversarial.desempate import MODOS_DE_DESEMPATE, PERSECUCION, SIN_DESEMPATE
 from src.game.navegacion import ProblemaNavegacion
 from src.game.verificador import verificar_solucion
 from src.models.state import EstadoJuego
@@ -229,7 +229,7 @@ def ejecutar_busqueda(escenario, algoritmo=None, heuristica=None, k=None):
     Complexity:         la del algoritmo elegido más la verificación O(n).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (386 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (400 pruebas).
     """
     prueba = escenario.prueba or {}
 
@@ -343,11 +343,47 @@ def _preparar_fase_4(escenario, profundidad=None, usar_poda=None):
     return estado, unidades_a, unidades_b, profundidad, usar_poda, orden
 
 
+def describir_evento(estado_antes, estado_despues, unidades_a, unidades_b, llega_a_la_base=False):
+    """Texto del evento que produjo un turno (recoger, robar o ganar); cadena vacía si no hubo ninguno.
+
+    Purpose:            hacer VISIBLE lo importante de una partida (quién recoge el recurso,
+                        quién se lo roba a quién y cuándo se gana) en la consola y en la tabla
+                        de la GUI, en lugar de tener que deducirlo comparando posiciones.
+    Preconditions:      estado_antes y estado_despues son EstadoJuego consecutivos;
+                        unidades_a y unidades_b son las listas de Unidad de cada bando en el
+                        mismo orden que pos_a/pos_b; llega_a_la_base indica si estado_despues
+                        es terminal (el portador dejó el recurso en su base).
+    Postconditions:     devuelve "RECOGE el recurso (X)" si el recurso estaba libre y lo toma X;
+                        "ROBO: X le quita el recurso a Y" si el portador cambia de bando;
+                        "GANA: X deja el recurso en su base" si llega_a_la_base; "" en otro
+                        caso. No modifica nada.
+    Complexity:         O(1) en tiempo y espacio.
+    AI usage:           Yes
+    AI intervention:    la IA escribió la función y esta documentación.
+    Student validation: Validado por el equipo con tests/test_eventos_de_partida.py:
+                        recoger, robar, ganar y turnos sin evento.
+    """
+    def nombre(portador):
+        bando, indice = portador
+        return _nombre_unidad(bando, indice, unidades_a if bando == "A" else unidades_b)
+
+    antes, despues = estado_antes.portador, estado_despues.portador
+    if despues is None:
+        return ""
+    if llega_a_la_base:
+        return f"GANA: {nombre(despues)} deja el recurso en su base"
+    if antes is None:
+        return f"RECOGE el recurso ({nombre(despues)})"
+    if antes[0] != despues[0]:
+        return f"ROBO: {nombre(despues)} le quita el recurso a {nombre(antes)}"
+    return ""
+
+
 def _estrategia_de_robo(prueba):
-    """Lee prueba.estrategia_robo ("persecucion" por defecto o "intercepcion"); avisa si no es válida."""
+    """Lee prueba.estrategia_robo ("persecucion" por defecto, "intercepcion" o "ninguna"); avisa si no es válida."""
     estrategia = prueba.get("estrategia_robo", ESTRATEGIA_DE_ROBO_POR_DEFECTO)
-    if estrategia not in ESTRATEGIAS_DE_ROBO:
-        print(f"Aviso: 'prueba.estrategia_robo' = {estrategia!r} no es válida {list(ESTRATEGIAS_DE_ROBO)}; "
+    if estrategia not in MODOS_DE_DESEMPATE:
+        print(f"Aviso: 'prueba.estrategia_robo' = {estrategia!r} no es válida {list(MODOS_DE_DESEMPATE)}; "
               f"se usa '{ESTRATEGIA_DE_ROBO_POR_DEFECTO}'.")
         return ESTRATEGIA_DE_ROBO_POR_DEFECTO
     return estrategia
@@ -361,6 +397,9 @@ def _crear_agentes(profundidad, usar_poda, orden, estrategia_robo=ESTRATEGIA_DE_
     primera unidad cuando nada cambia el valor. La decisión adversarial suelta
     (ejecutar_adversarial) conserva la primera acción óptima del orden.
     """
+    if estrategia_robo == SIN_DESEMPATE:   # "ninguna": se conserva la primera acción óptima del orden
+        return {bando: MinimaxAgent(bando, profundidad=profundidad, usar_poda=usar_poda, orden_direcciones=orden)
+                for bando in ("A", "B")}
     return {
         bando: MinimaxAgent(bando, profundidad=profundidad, usar_poda=usar_poda, orden_direcciones=orden,
                             desempatar_por_avance=True, estrategia_robo=estrategia_robo)
@@ -389,7 +428,7 @@ def ejecutar_adversarial(escenario, profundidad=None, usar_poda=None):
                         'partida').
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (386 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (400 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
@@ -442,7 +481,7 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
                         turno (más los acumulados O(1)).
     AI usage:           Yes
     AI intervention:    la IA escribió la función y esta documentación.
-    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (386 pruebas).
+    Student validation: Validado por el equipo ejecutando los tres modos (busqueda, partida y adversarial) sobre los escenarios de config/ y la suite completa (400 pruebas).
     """
     estado, unidades_a, unidades_b, profundidad, usar_poda, orden = _preparar_fase_4(escenario, profundidad, usar_poda)
     if estado is None:
@@ -481,17 +520,23 @@ def ejecutar_partida(escenario, profundidad=None, usar_poda=None):
 
         indice, destino = accion
         nombre = _nombre_unidad(bando, indice, unidades_a if bando == "A" else unidades_b)
+        empatadas = metricas.get("acciones_empatadas")   # None si el desempate está apagado
+        sufijo_empate = f" | Emp. {empatadas}" if empatadas else ""
         print(f"Turno {turno_num:02d} | {bando} -> {nombre} {destino} | Valor {metricas['valor_obtenido']:+.1f} | "
               f"Nodos {metricas['nodos_generados']:4d} | Evaluados {metricas['nodos_evaluados']:4d} | "
               f"Podas {metricas['podas_totales']:3d} | Prof. {metricas['profundidad_alcanzada']} | "
-              f"Legal {'sí' if metricas['accion_legal'] else 'NO'} | {metricas['tiempo_ms']:.2f} ms")
+              f"Legal {'sí' if metricas['accion_legal'] else 'NO'} | {metricas['tiempo_ms']:.2f} ms{sufijo_empate}")
         if not metricas["accion_legal"]:
             print(f"         ATENCIÓN: la acción no pasó la verificación: {metricas['detalle_legalidad']}")
 
+        anterior = estado
         estado = next((nuevo for movimiento, nuevo in estado.sucesores(tablero) if movimiento == accion), None)
         if estado is None:
             print(f"Error interno: la acción {accion} no está entre los sucesores del estado.")
             return 1
+        evento = describir_evento(anterior, estado, unidades_a, unidades_b, estado.es_terminal(base_a, base_b))
+        if evento:
+            print(f"         >>> {evento}")
         turno_num += 1
 
     print("-" * 100)

@@ -19,6 +19,14 @@ TAM_CELDA_MAX = 32
 UMBRAL_RADIO_LETRA_NORMAL = 0.3   # desde este radio (fracción de la celda) el id cabe con letra normal
 
 
+def _etiqueta_de_evento(evento):
+    """Etiqueta de color de la tabla de partida según el evento del turno ("" = sin color)."""
+    for prefijo, etiqueta in (("ROBO", "robo"), ("RECOGE", "recoge"), ("GANA", "gana")):
+        if evento.startswith(prefijo):
+            return (etiqueta,)
+    return ()
+
+
 class CanvasEscenario(tk.Canvas):
     """Dibuja el tablero de un escenario: terrenos, bases, recurso, unidades y turno.
 
@@ -340,16 +348,21 @@ class AppTacticalGrid(tk.Tk):
         self.boton_siguiente_turno.pack(side="left")
 
         columnas = ("turno", "bando", "unidad", "accion", "valor", "nodos", "podas",
-                    "profundidad", "legal", "tiempo_ms")
+                    "profundidad", "legal", "tiempo_ms", "empatadas", "evento")
         self.tabla_partida = ttk.Treeview(pestana, columns=columnas, show="headings", height=10)
         titulos = {
             "turno": "Turno", "bando": "Bando", "unidad": "Unidad", "accion": "Destino",
             "valor": "Valor", "nodos": "Nodos", "podas": "Podas", "profundidad": "Prof.",
-            "legal": "Legal", "tiempo_ms": "Tiempo (ms)",
+            "legal": "Legal", "tiempo_ms": "Tiempo (ms)", "empatadas": "Empatadas", "evento": "Evento",
         }
         for columna in columnas:
             self.tabla_partida.heading(columna, text=titulos[columna])
             self.tabla_partida.column(columna, width=70, anchor="center")
+        self.tabla_partida.column("evento", width=320, anchor="w")
+        # Filas resaltadas por evento: recoger (verde), robo (amarillo) y victoria (azul).
+        self.tabla_partida.tag_configure("recoge", background="#d9f2d9")
+        self.tabla_partida.tag_configure("robo", background="#ffe08a")
+        self.tabla_partida.tag_configure("gana", background="#cfe3ff")
         self.tabla_partida.pack(side="top", fill="both", expand=True, pady=(4, 4))
 
         self.label_desenlace = ttk.Label(pestana, text="", justify="left")
@@ -457,7 +470,8 @@ class AppTacticalGrid(tk.Tk):
                 fila["turno"], fila["bando"], fila["unidad"], str(fila["accion"]),
                 f"{fila['valor']:+.1f}", fila["nodos_generados"], fila["podas"],
                 fila["profundidad"], "sí" if fila["legal"] else "NO", f"{fila['tiempo_ms']:.2f}",
-            ))
+                fila["acciones_empatadas"] if fila["acciones_empatadas"] else "", fila["evento"],
+            ), tags=_etiqueta_de_evento(fila["evento"]))
 
         self._refrescar_canvas()
 

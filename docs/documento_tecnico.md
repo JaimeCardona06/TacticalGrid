@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 386 pruebas automatizadas + 199 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 400 pruebas automatizadas + 199 subtests.
 
 ---
 
@@ -220,7 +220,7 @@ recurso:
 modelo (una unidad que entra a la celda del portador rival le quita el recurso) y no cambia; lo que
 el desempate decide es *cómo buscar esa oportunidad* cuando el rival lleva el recurso. Hay dos
 estrategias (`ESTRATEGIAS_DE_ROBO`, parámetro `estrategia_robo` del agente y campo opcional
-`prueba.estrategia_robo` del JSON):
+`prueba.estrategia_robo` del JSON; el valor `"ninguna"` apaga el desempate para poder compararlo):
 
 - **`persecucion` (por defecto):** acercarse al portador (distancia real, rodeando muros).
 - **`intercepcion`:** predecir la ruta más corta del portador a su base (`ruta_hacia_la_base`) y
@@ -302,7 +302,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 386 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 400 pruebas + 199 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -556,10 +556,16 @@ como apoyo en todas las fases del proyecto.
   `CanvasEscenario.dibujar` y `tests/test_disposicion_fichas.py`. Se comprobó que las pruebas del
   dibujo fallan con el código anterior y se jugaron cuatro escenarios completos en la GUI real
   sin ninguna ficha tapada.
+- **Eventos de partida y escenario de demostración (Claude Code, Anthropic):** ante la petición
+  del equipo de poder *ver* el desempate y el robo, la IA buscó entre 600 escenarios aleatorios
+  pequeños uno donde las tres variantes se distinguen (`config/caso_robo_visual.json`), escribió
+  `main.describir_evento`, el modo `"ninguna"`, la columna de eventos de la consola y la tabla de
+  la GUI, y `tests/test_eventos_de_partida.py`. Los resultados citados (14, 19 y 27 turnos) salen
+  de partidas reales de esas pruebas.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **386 pruebas y 199 subtests en verde**
+- Ejecución y verificación de la suite completa: **400 pruebas y 199 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

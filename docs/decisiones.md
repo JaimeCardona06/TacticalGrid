@@ -155,8 +155,11 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
   | Intercepción | 31 % | 365 | 57 % |
 
   Se elige la persecución. La estrategia se cambia con el campo opcional `prueba.estrategia_robo`
-  (`"persecucion"` o `"intercepcion"`; un valor inválido avisa y usa la de por defecto) o con
-  `MinimaxAgent(..., estrategia_robo=...)`. Con profundidad 2 los agentes se pasan el recurso de
+  (`"persecucion"`, `"intercepcion"` o `"ninguna"`, que apaga el desempate y deja la primera
+  acción óptima del orden; un valor inválido avisa y usa la de por defecto) o con
+  `MinimaxAgent(..., estrategia_robo=...)`. `config/caso_robo_visual.json` permite **ver** las tres
+  con un mismo JSON, y la consola y la tabla de la GUI marcan cada evento (`RECOGE`, `ROBO`,
+  `GANA`) y cuántas acciones empatadas tuvo cada decisión. Con profundidad 2 los agentes se pasan el recurso de
   uno a otro (1 364 robos en 250 partidas) porque no ven la recuperación; con profundidad 3 son 490.
 - **La regla de robo NO se debilita:** entrar a la celda del portador rival le quita el recurso.
   Esa misma regla produce el empate por equilibrio en mapas simétricos (el primero en recoger con

@@ -31,6 +31,7 @@ python main.py config/caso_adversarial_3v3.json # decisión adversarial 3 vs 3 (
 python main.py config/mapa_3v3.json             # partida 3 vs 3 (5x5, las 6 unidades activas)
 python main.py config/mapa_grande.json          # partida 20x20 (escenario de gran escala)
 python main.py config/mapa_grande_simetrico.json # partida 20x20 sin ventaja inicial (empata por equilibrio)
+python main.py config/caso_robo_visual.json     # ver el robo del recurso (A1 roba en el turno 5)
 ```
 
 El modo lo decide el campo `prueba.modo` del escenario:
@@ -81,7 +82,7 @@ Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado**
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (386 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (400 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```
@@ -96,6 +97,7 @@ sus escenarios reproducibles en `config/caso_*.json`.
 - `mapa_3v3.json`: partida 3 vs 3 (5x5, todas las unidades activas).
 - `mapa_grande.json`: escenario de gran escala (20x20, 3 unidades por bando); B parte 2 pasos más cerca del recurso y gana.
 - `mapa_grande_simetrico.json`: el mismo con el recurso a igual distancia de ambos bandos (empate por equilibrio).
+- `caso_robo_visual.json`: para **ver** el desempate y el robo (7x7): cambia `prueba.estrategia_robo` entre `ninguna`, `persecucion` e `intercepcion`; la consola y la tabla de la GUI marcan `ROBO`, `RECOGE` y `GANA`.
 - `caso_intercepcion.json`: robo por intercepción (B lleva el recurso; A roba en el turno 55 y gana).
 - `experimentos/comparar_desempates.py`: experimento reproducible que compara los desempates en partidas completas.
 - `caso_bfs_vs_ucs.json`: ruta corta vs. ruta económica por costos de terreno.

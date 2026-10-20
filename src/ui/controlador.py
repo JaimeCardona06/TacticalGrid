@@ -397,6 +397,10 @@ def jugar_turno(partida):
         "legal": metricas["accion_legal"],
         "detalle_legalidad": metricas["detalle_legalidad"],
         "tiempo_ms": metricas["tiempo_ms"],
+        "acciones_empatadas": metricas.get("acciones_empatadas"),
+        "evento": main.describir_evento(
+            partida.estado, nuevo_estado, partida.unidades_a, partida.unidades_b,
+            nuevo_estado.es_terminal(partida.base_a, partida.base_b)),
     }
 
     if partida.turno_num >= main.MAX_TURNOS:
