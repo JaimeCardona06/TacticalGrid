@@ -136,13 +136,13 @@ Evalúa una sola jugada: estado evaluado, unidad y celda elegidas, verificación
 | Orden de acciones | Mismo estado con `prueba.orden_direcciones` distinto en el JSON | Cambia la cantidad de poda sin cambiar el valor |
 | Profundidad | `--profundidad 1..4` | Los nodos crecen con la profundidad; la decisión puede cambiar |
 | Partida 3 vs 3 | `python main.py config/mapa_3v3.json` | Las 6 unidades juegan (3 por bando); A gana en 11 turnos, cada acción verificada |
-| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 B gana en 68 turnos; con d=3 la partida empata a 100 (empates de valor: todas las jugadas cercanas a la victoria valen −10000 y desempata el orden de generación) |
+| Profundidad en 3 vs 3 | `python main.py config/mapa_grande.json --profundidad 2` y luego `--profundidad 3` | Con d=2 y con d=3 B gana en 68 turnos: su portador entra a la base en cuanto puede (ganar antes vale más). B gana porque B3 parte 2 pasos más cerca del recurso; las fichas de A que "deambulan" son jugadas empatadas que decide el orden de generación |
 | Nombres propios de terreno | `python main.py config/mapa_agnostico.json --algoritmo UCS` | El sistema funciona con "arena"/"lava"/"roca" (costos del JSON) |
 
 ## 8. Pruebas automatizadas
 
 ```bash
-python -m unittest discover -s tests -t . -v    # suite completa: 310 pruebas + 172 subtests
+python -m unittest discover -s tests -t . -v    # suite completa: 323 pruebas + 184 subtests
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```

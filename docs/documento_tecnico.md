@@ -5,7 +5,7 @@ Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad 
 
 **Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
-**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 310 pruebas automatizadas + 172 subtests.
+**Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 323 pruebas automatizadas + 184 subtests.
 
 ---
 
@@ -180,7 +180,10 @@ completo). La opción se ejecuta en cada prueba de búsqueda y se imprime el inf
 
 Jerarquía implementada en `src/adversarial/utility.py`:
 
-1. **Victoria/derrota:** +10000 si A lleva el recurso a su base; −10000 si lo logra B.
+1. **Victoria/derrota:** +10000 si A lleva el recurso a su base; −10000 si lo logra B. Dentro del
+   árbol, `minimax._valor_de_hoja` suma la profundidad restante a la victoria (±(10000 + p)): ganar
+   antes vale más y perder después duele menos; así el portador a un paso de su base entra en
+   lugar de pasar el turno con otra unidad.
 2. **A transporta:** 5000 − 100 × distancia de A a su base (quiere acercarse).
 3. **B transporta:** −(5000 − 100 × distancia de B a su base) (A quiere que B esté lejos).
 4. **Recurso libre:** (distancia de B al recurso − distancia de A al recurso) × 50 (carrera por la captura).
@@ -225,7 +228,7 @@ defecto). Precedencia: **banderas de consola > menú interactivo > sugerencia de
 2. **Contraste esperado vs obtenido:** `tests/test_casos_minimos.py` ejecuta los 10 casos del
    enunciado y cada aserción incluye el valor esperado y el obtenido en su mensaje de fallo.
 3. **Verificación independiente:** cada solución de búsqueda pasa por el verificador (7 comprobaciones).
-4. **Suite:** 310 pruebas + 172 subtests (`python -m unittest discover -s tests -t . -v`).
+4. **Suite:** 323 pruebas + 184 subtests (`python -m unittest discover -s tests -t . -v`).
 
 ---
 
@@ -339,11 +342,17 @@ evaluada.
     440 / 48; ~0.4 ms por decisión).
   - `mapa_grande.json` (20x20) con `--profundidad 2`: gana B en 68 turnos (34 decisiones por bando,
     ~3.3k nodos generados por bando, ~0.35 ms por decisión).
-  - `mapa_grande.json` (20x20) con la profundidad 3 sugerida por el JSON: **empata a 100 turnos**.
-    Desde que el portador de B quedó a un paso de su base, *todas* las jugadas de B valen −10000 en
-    el horizonte (la victoria entra al árbol por cualquier línea) y el desempate por orden de
-    generación elige mover otra unidad: es el fenómeno clásico de empates de valor con profundidad
-    limitada (sección 10) y un buen contraste del efecto de la profundidad en 3 vs 3.
+  - `mapa_grande.json` (20x20) con la profundidad 3 sugerida por el JSON: **gana B en 68 turnos**,
+    igual que con profundidad 2. *Hallazgo y corrección:* una versión anterior de la utilidad
+    empataba aquí a 100 turnos, porque desde que el portador de B quedó a un paso de su base
+    *todas* las jugadas de B valían −10000 en el horizonte (la victoria entraba al árbol por
+    cualquier línea) y el desempate por orden de generación elegía mover otra unidad, posponiendo
+    la victoria para siempre. Se corrigió haciendo que ganar antes valga más (sección 5.2); la
+    prueba de regresión es `tests/test_victoria_rapida.py`.
+  - En esa partida B gana porque su unidad B3 parte 2 pasos más cerca del recurso (16 contra 18):
+    el recurso en (10,10) no está en el centro del tablero 20x20 (que queda entre las celdas 9 y
+    10). Mover el recurso a una celda equidistante, por ejemplo (9,10), produce un empate técnico:
+    quien lo recoja es robado de inmediato por la unidad rival adyacente, y ninguna lo recoge.
 
 ### 8.3 Verificación de las soluciones
 
@@ -379,12 +388,13 @@ nombre usado que no exista en el catálogo es rechazado por el validador.
 
 ## 10. Limitaciones
 
-1. **Empates de valor con profundidad limitada:** cuando todas las líneas del horizonte llevan a la
-   misma victoria, cualquier acción conserva el valor (±10000) y el desempate es el orden de
-   generación; el bando puede no forzar la victoria inmediata (observado en `mapa_grande` 3 vs 3 a
-   d=3, que empata a 100 turnos con el portador de B a un paso; con d=2 el juego cierra en 68 turnos).
-   Es el mismo mecanismo que hace del orden de acciones un experimento (caso 9), visto aquí como
-   limitación de la profundidad limitada.
+1. **Empates de valor con profundidad limitada:** cuando ninguna jugada cambia el valor dentro del
+   horizonte, el desempate es el orden de generación. La victoria ya no se pospone (ganar antes
+   vale más, sección 5.2), pero un bando que no puede evitar la derrota, o que no ve nada útil a
+   la profundidad dada, mueve la primera unidad en el orden y puede parecer que "deambula" (en
+   `mapa_grande` las unidades de A recorren la fila 0 mientras B se lleva el recurso). Es el mismo
+   mecanismo que hace del orden de acciones un experimento (caso 9), visto aquí como limitación de
+   la profundidad limitada; un término de persecución en la utilidad lo mitigaría (ver 2).
 2. **La utilidad no penaliza la proximidad entre unidades**: las acciones de intercepción emergen
    del robo, no de un término explícito de distancia entre rivales. Cambiar los pesos es directo
    (sección 5.2) y es un experimento recomendado para la sustentación.
@@ -415,10 +425,17 @@ como apoyo en todas las fases del proyecto.
   y en la redacción de pruebas automatizadas (casos mínimos y de compatibilidad).
 - Generación de borradores de escenarios de prueba (caso_beam, caso_adversarial, mapa_agnóstico),
   verificados empíricamente por el equipo antes de congelarlos.
+- **Preferencia por ganar antes (Claude Code, Anthropic):** a partir de una observación del equipo
+  (en `mapa_grande.json` una ficha de A parecía detenerse junto a un muro y la partida nunca
+  terminaba), la IA reprodujo la partida, descartó la pared como causa y encontró que la
+  victoria se posponía por empates de valor; propuso y escribió `minimax._valor_de_hoja`
+  (±(10000 + profundidad restante)), la documentación de ese método y
+  `tests/test_victoria_rapida.py`. Antes de aceptarlo se comprobó en una copia del proyecto que
+  las pruebas existentes seguían en verde y que las pruebas nuevas **fallan** sin el cambio.
 
 **Validación realizada por el equipo (Student validation):**
 
-- Ejecución y verificación de la suite completa: **310 pruebas y 172 subtests en verde**
+- Ejecución y verificación de la suite completa: **323 pruebas y 184 subtests en verde**
   (`python -m unittest discover -s tests -t . -v`), incluyendo los 10 casos mínimos con contraste
   explícito esperado vs obtenido.
 - Simulación de partidas completas en consola (1 vs 1 y 3 vs 3, en 5x5, 6x6 y 20x20) comprobando que

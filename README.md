@@ -80,7 +80,7 @@ Sin banderas y con terminal interactiva, `main.py` muestra un **menú numerado**
 ## Pruebas
 
 ```bash
-python -m unittest discover -s tests -t . -v   # suite completa (310 pruebas + subtests)
+python -m unittest discover -s tests -t . -v   # suite completa (323 pruebas + subtests)
 # o, si tienes pytest instalado:
 python -m pytest -q
 ```

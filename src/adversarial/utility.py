@@ -34,10 +34,13 @@ def evaluar_estado(estado, base_a, base_b):
         - base_b: Tupla (fila, columna) con la posición de la base de B.
 
     Postconditions:
-        - Retorna un flotante/entero con la jerarquía: victoria +10000 (B) o
-          derrota -10000 (A); con portador, ±(5000 - 100·distancia del portador
+        - Retorna un flotante/entero con la jerarquía: +10000 si gana A y
+          -10000 si gana B; con portador, ±(5000 - 100·distancia del portador
           a la base propia); con el recurso libre, 50 por la unidad más cercana
           de B menos 50 por la más cercana de A.
+        - Esta función es pura: no sabe a qué profundidad está el estado. La
+          preferencia por ganar antes (±(10000 + profundidad restante)) la agrega
+          minimax._valor_de_hoja al evaluar las hojas del árbol.
 
     Complexity:
         - O(u) tiempo (u = unidades de ambos bandos) y O(1) espacio.

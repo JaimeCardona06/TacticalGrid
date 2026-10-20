@@ -112,12 +112,23 @@ Cada decisión debe poder defenderse en la sustentación: se indica qué se elig
 - **Reglas deterministas:** recoger al pisar la celda del recurso libre; mientras lo lleva, el
   recurso viaja con el portador; robar al pisar la celda del portador rival; victoria al dejar el
   recurso en la base propia; empate con `MAX_TURNOS = 100`; se permite apilar unidades.
-- **Utilidad (perspectiva de MAX = A):** +10000 victoria / −10000 derrota; con portador,
+- **Utilidad (perspectiva de MAX = A):** +10000 si gana A / −10000 si gana B; con portador,
   ±(5000 − 100 × distancia a su base); recurso libre, 50 × (distancia de la unidad más cercana de
   B − la de A).
+- **Ganar antes vale más:** al evaluar una hoja terminal, `minimax._valor_de_hoja` suma la
+  profundidad restante p a la victoria (±(10000 + p)): quien gana prefiere la victoria más
+  cercana y quien pierde prefiere la derrota más lejana. `evaluar_estado` sigue siendo pura (±10000);
+  la profundidad solo existe en el árbol. **Por qué:** sin esto, todas las jugadas que conservaban
+  una victoria dentro del horizonte valían lo mismo y el desempate por orden de generación podía
+  posponerla para siempre. En `mapa_grande.json` con profundidad 3, el portador de B quedaba a un
+  paso de su base, la jugada ganadora valía −10000 igual que mover cualquier otra unidad (B1 era
+  la primera en el orden) y la partida empataba a 100 turnos. Con el cambio termina (gana B en 68
+  turnos con profundidad 2 y con 3). Pruebas: `tests/test_victoria_rapida.py`.
 - **Desempates:** a igual valor, Minimax conserva la primera acción del orden de generación; por
-  eso el orden afecta la poda (caso mínimo 9) y con profundidad limitada pueden aparecer empates
-  de valor (limitación documentada en el documento técnico).
+  eso el orden afecta la poda (caso mínimo 9). Siguen existiendo empates cuando ninguna jugada
+  cambia el valor dentro del horizonte (por ejemplo, un bando que ya no puede evitar la derrota):
+  ahí el orden de generación decide y las fichas pueden moverse sin un propósito aparente
+  (limitación documentada en el documento técnico).
 
 ## 5. Verificación de soluciones
 
