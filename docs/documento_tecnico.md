@@ -3,7 +3,7 @@
 Juego táctico 2D por turnos con búsqueda y toma de decisiones.
 Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, Universidad de Caldas.
 
-**Integrantes:** _completar con los nombres del equipo_
+**Integrantes:** MARIANA LOPEZ FLOREZ, MAURICIO GONZALES CARMONA, Jaime Andrés Cardona Díaz.
 
 **Versión del documento:** 1.0 — corresponde a la versión del repositorio validada con 310 pruebas automatizadas + 172 subtests.
 
