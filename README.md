@@ -6,9 +6,9 @@ Proyecto de Sistemas Inteligentes I — Ingeniería de Sistemas y Computación, 
 
 ## Integrantes
 
-- _Completar: nombre del integrante 1_
-- _Completar: nombre del integrante 2_
-- _Completar: nombre del integrante 3_
+- MARIANA LOPEZ FLOREZ
+- MAURICIO GONZALES CARMONA
+- Jaime Andrés Cardona Díaz
 
 ## Requisitos
 

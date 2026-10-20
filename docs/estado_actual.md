@@ -4,7 +4,7 @@ Resumen rápido de **qué funciona hoy, cómo se ejecuta y cómo se prueba**. Es
 antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual_de_usuario.md`
 (guía de uso detallada); aquí solo se responde "¿en qué quedó el proyecto y cómo lo verifico?".
 
-Última verificación: 2026-10-18, rama `dev`, working tree limpio.
+Última verificación: 2026-10-19, rama `dev` (suite completa en verde).
 
 ---
 
@@ -20,12 +20,10 @@ antes de leer `docs/documento_tecnico.md` (modelado y resultados) o `docs/manual
 | CLI (`main.py`): banderas, menú interactivo, modos busqueda/partida/adversarial | ✅ Completo |
 | Suite de pruebas automatizadas | ✅ 310 pruebas + subtests, todas en verde |
 | Interfaz gráfica (`src/ui/gui.py`) | ✅ Completo (Tkinter: busqueda/adversarial/partida) |
-| Carpetas `scenarios/` y `assets/` | ⏳ Vacías (reservadas, sin uso todavía) |
-| Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ⏳ Pendiente de completar |
+| Nombres de los integrantes en `README.md` / `documento_tecnico.md` | ✅ Completos |
 
 **En una frase:** el motor completo (búsqueda + decisión adversarial) funciona por consola y por
-una interfaz gráfica Tkinter, ambas probadas y documentadas; lo que queda pendiente es
-administrativo (nombres del equipo) y el uso futuro de las carpetas reservadas (sección 6).
+una interfaz gráfica Tkinter, ambas probadas y documentadas; no hay pendientes funcionales conocidos.
 
 ---
 
@@ -87,7 +85,7 @@ python -m unittest discover -s tests -t . -v
 python -m pytest -q
 ```
 
-Última corrida real (2026-10-18): **310 pruebas, 0 fallos, ~1.6 s**
+Última corrida real (2026-10-19): **310 pruebas, 0 fallos, ~2.7 s**
 (`python -m unittest discover -s tests -t .`, salida `Ran 310 tests ... OK`).
 
 Los 10 casos mínimos exigidos por el enunciado están aislados en `tests/test_casos_minimos.py`,
@@ -142,8 +140,8 @@ de las dos duplique lógica de búsqueda o adversarial:
 
 ## 6. Pendientes conocidos
 
-1. Completar los nombres de los integrantes en `README.md` y `docs/documento_tecnico.md`.
-2. Decidir el uso futuro de `scenarios/` y `assets/` (hoy vacías) o eliminarlas si no se van a usar.
+No hay pendientes funcionales conocidos: el motor, la GUI, la suite y la documentación están
+completos y verificados.
 
 ---
 
